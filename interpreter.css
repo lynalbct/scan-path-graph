@@ -1,0 +1,33 @@
+#infoPanel {
+	position: absolute;
+	background-color: white;
+	border: 1px solid #CCC;
+	border-radius: 4px;
+	box-shadow: 0 0 5px #DDD;
+}
+
+#infoPanel a{
+	width: 100%;
+	float: left;
+	font-family: arial;
+	font-size: 0.8em;
+}
+
+#infoPanel div{
+	margin: 0.4em 0.4em;
+	line-height: 1em;
+}
+
+.text-bold{
+	font-weight: bold;
+}
+
+#cartesian_plane, #cartesian_plane svg{
+	position: absolute;
+	left: 0;
+	top: 0;
+}
+
+#cartesian_plane{
+	margin-top: 100px;
+}
