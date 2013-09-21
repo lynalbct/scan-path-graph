@@ -2,20 +2,26 @@ Ajaxer = function ajaxer(){
 
 };
 
+Ajaxer.prototype.getImage = function( fname ){
+	// Simple Ajax call
+};
+
 Ajaxer.prototype.getData = function( fname ){
 	// PHP connector
+	$.ajax({
+		url: "io.php?f="+fname,
+		dataType: 'json',
+		success: function( data ){
+			graph = new DataDisplay(image_src, data);
+		},
+		error: function(xhr, ts, et){
+			console.log(xhr)
+		}
+	});
 };
 
-Ajaxer.prototype.postData = function( fname ){
-	// PHP connecter
-};
-
-Ajaxer.prototype.getImage = function( fname ){
-	// PHP connector
-};
-
-Ajaxer.prototype.postImage = function( fname ){
-	// PHP connector
+Ajaxer.prototype.postFile = function( fname ){
+	// For uploading
 };
 
 DataDisplay = function dataDisplay( imageSrc, jsonData ){
@@ -24,11 +30,14 @@ DataDisplay = function dataDisplay( imageSrc, jsonData ){
 	this.imageWidth = 0;
 	this.imageHeight = 0;
 	// cartesian plane
-	this.canvas = d3.select('#cartesian_plane');
+	this.canvas = d3.select('#cartesian_plane')
+		// tmp
+			.style('width',1600)
+			.style('height',676);
 	this.svg = this.canvas.append('svg')
 		// tmp
-		.style('width',1000)
-		.style('height',1000);
+		.style('width',1600)
+		.style('height',676);
 	this.svgEdge = this.svg.append('g').attr('id','edgeGroup');
 	this.svgEffect = this.svg.append('g').attr('id','effectGroup');
 	this.svgCircle = this.svg.append('g').attr('id','circleGroup');
@@ -143,7 +152,7 @@ DataDisplay.prototype.newInfo = function( p ){
 		.style('height',h),
 		panelDiv = panel.append('div');
 	panelDiv.append('a').text('#'+p.idx).attr('class','text-bold');
-	panelDiv.append('a').text('x:'+p.x+', y:'+p.y);
+	panelDiv.append('a').text('x:'+parseInt(p.x)+', y:'+parseInt(p.y));
 };
 
 DataDisplay.prototype.removeInfo = function(){
@@ -155,7 +164,6 @@ DataDisplay.prototype.init = function(){
 	// this.loadImage( this.imageSrc );
 	// parse data
 	this.parseData(this.data);
-
 	this.display();
 };
 
@@ -163,7 +171,9 @@ DataDisplay.prototype.loadImage = function( src ){
 	// load image into DOM
 	//Ajaxer and get W H
 	this.canvas
-		.style('background-image',src);
+		.style('background-image',src)
+		.style('width',this.imageWidth)
+		.style('height',this.imageHeight);
 	this.canvasSVG
 		.style('width',this.imageWidth)
 		.style('height',this.imageHeight);
@@ -176,14 +186,12 @@ DataDisplay.prototype.parseData = function( json ){
 		d.push({
 			'x': json[i][0],
 			'y': json[i][1],
-			'r': json[i][2] / 10 / 2,
+			'r': json[i][2] / 5 / 2 > 5 ? json[i][2] / 5 / 2 : 5,
 			'idx': i+1
 		});
 		i++;
 	}
 	this.dataSize = i;
-	// approximate fixation points
-
 	this.data = d;
 };
 
@@ -220,16 +228,12 @@ DataDisplay.prototype.display = function(){
 		} else {
 			clearInterval(popInterval);
 		}
-	}, 300);
+	}, 100);
 };
 
-var test_data = {
-	'0': [50,80,500],
-	'1': [140,70,300],
-	'2': [243,94,200]
-};
+var image_src = '', graph = null;
 
 window.onload = function(){
-	var image_src = '',
-	graph = new DataDisplay(image_src, test_data);
+	var ajxr = new Ajaxer();
+	ajxr.getData('NancyComic_Rescaled_24Bit');
 };

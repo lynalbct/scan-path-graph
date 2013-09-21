@@ -10,7 +10,7 @@
 	width: 100%;
 	float: left;
 	font-family: arial;
-	font-size: 0.8em;
+	font-size: 0.6em;
 }
 
 #infoPanel div{
@@ -30,4 +30,7 @@
 
 #cartesian_plane{
 	margin-top: 100px;
+	background-image: url('data/NancyComic_Rescaled_24Bit.bmp');
+	background-size: 1600px 676px;
+	background-repeat: no-repeat;
 }
