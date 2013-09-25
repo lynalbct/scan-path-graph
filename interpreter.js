@@ -19,19 +19,23 @@ DataDisplay = function dataDisplay( imageName, imageExt ){
 	this.svgHighlight = this.svg.append('g').attr('id','highlightGroup');
 	// Effect control
 	this.animationInterval = null;
+	this.popInterval = null;
 	this.colorScale = d3.scale.linear().range(['red', 'purple']).domain([0, 500]);
 	// Frame control
 	this.key = 0;
 	// Data properties
-	this.sampleRate = 0;
 	this.criteria = {
 		'minTime' : 40,
 		'errX' : 5,
 		'errY' : 3
-	}
+	};
+	this.scaling = null;
 	this.dataSize = 0;
+	this.sampleRate = 0;
 	this.rawData = null;
 	this.fixationData = [];
+	// Event properties
+	this.isPaused = false;
 
 	this.init();
 };
@@ -45,7 +49,9 @@ DataDisplay.prototype.refreshOnCriteriaChange = function( minTime, errX, errY ){
 	this.criteria.minTime = minTime;
 	this.criteria.errX = errX;
 	this.criteria.errY = errY;
-	this.parseRaw(this.rawData);
+	this.newLoadingScreen( this.string.parseData );
+	this.parseFix();
+	this.removeLoadingScreen();
 	this.display();
 };
 
@@ -115,13 +121,17 @@ DataDisplay.prototype.parseRaw = function(){
 		});
 	}
 	this.sampleRate = this.rawData.sample_rate;
+	this.scaling = this.rawData.scale;
 	this.rawData = d;
 	this.parseFix();
 	this.removeLoadingScreen();
 };
 
 DataDisplay.prototype.parseFix = function(){
-	var d = [], i = 0, idx = 0;
+	var d = [], i = 0, idx = 0.
+		maxR = 0;
+	this.criteria.errX *= this.scaling.scaleX;
+	this.criteria.errY *= this.scaling.scaleY;
 	for (i = 0; i < this.rawData.length; i++){
 		var c = this.rawData[i],
 			fixation = {
@@ -130,8 +140,12 @@ DataDisplay.prototype.parseFix = function(){
 			},
 			sampleCount = 1;
 		for (var j = i + 1; j < this.rawData.length; j++){
-			if (this.calcError( this.rawData[j].x, c.x, this.criteria.errX) ){
+			if (
+				this.calcError( this.rawData[j].x, c.x, this.criteria.errX) &&
+				this.calcError( this.rawData[j].y, c.y, this.criteria.errY) ){
 				sampleCount++;
+				fixation.x += this.rawData[j].x;
+				fixation.y += this.rawData[j].y;
 			} else {
 				i = j;
 				break;
@@ -139,11 +153,18 @@ DataDisplay.prototype.parseFix = function(){
 		}
 		if (this.calcInterval(sampleCount) >= this.criteria.minTime ){
 			idx++;
-			fixation.r = this.calcInterval(sampleCount) / 4 / 2;
+			fixation.x = fixation.x / sampleCount;
+			fixation.y = fixation.y / sampleCount;
 			fixation.ftime = this.calcInterval(sampleCount);
 			fixation.idx = idx;
 			d.push(fixation);
+			if (fixation.ftime > maxR){
+				maxR = fixation.ftime;
+			}
 		}
+	}
+	for (i = 0; i < d.length; i++ ){
+		d[i].r = d[i].ftime / maxR * 50;
 	}
 	this.dataSize = d.length;
 	this.fixationData = d;
@@ -232,7 +253,7 @@ DataDisplay.prototype.decorateCircle = function( fixation, isStart ){
 		.attr('cx', fixation.x)
 		.attr('cy', fixation.y)
 		.attr('stroke-width', 4)
-		.attr('stroke', this.colorScale(scale) )
+		.attr('stroke', 'black' )
 		.attr('stroke-dasharray', '5,5')
 		.attr('r', 0)
 		.transition().duration(300)
@@ -317,7 +338,13 @@ DataDisplay.prototype.newInfo = function( p ){
 		.style('width',w)
 		.style('height',h),
 		panelDiv = panel.append('div');
-	panelDiv.append('a').text('#'+p.idx).attr('class','text-bold');
+	if (p.idx === 1){
+		panelDiv.append('a').text('#'+p.idx+' START').attr('class','text-bold');
+	} else if (p.idx === this.dataSize){
+		panelDiv.append('a').text('#'+p.idx+' END').attr('class','text-bold');
+	} else {
+		panelDiv.append('a').text('#'+p.idx).attr('class','text-bold');
+	}
 	panelDiv.append('a').text('x:'+parseInt(p.x)+', y:'+parseInt(p.y));
 	panelDiv.append('a').text( parseInt(p.ftime)+' ms');
 };
@@ -371,23 +398,60 @@ DataDisplay.prototype.stepBackward = function(){
 };
 
 DataDisplay.prototype.display = function(){
+	this.holdHandles();
 	// display all points, with edges; auto step forward
 	this.key = 0;
 	self = this;
 	this.stepForward();
-	var popInterval = setInterval(function(){
+	this.popInterval = setInterval(function(){
 		if ( self.key < self.dataSize ){
 			self.stepForward();
 		} else {
-			clearInterval(popInterval);
+			clearInterval(self.popInterval);
+			self.popInterval = null;
+			self.releaseHandles();
 		}
 	}, 100);
 };
 
+DataDisplay.prototype.pause = function(){
+	clearInterval(this.popInterval);
+	this.popInterval = null;
+	this.isPaused = true;
+	this.releaseHandles();
+};
+
+DataDisplay.prototype.resume = function(){
+	this.holdHandles();
+	this.isPaused = false;
+	this.popInterval = setInterval(function(){
+		if ( self.key < self.dataSize ){
+			self.stepForward();
+		} else {
+			clearInterval(self.popInterval);
+			self.popInterval = null;
+			self.releaseHandles();
+		}
+	}, 100);
+}
+
 DataDisplay.prototype.replay = function(){
-	this.canvas.selectAll('circle_mouse_event_receiver').remove();
+	this.clear();
+	this.display();
+};
+
+DataDisplay.prototype.clear = function(){
+	this.canvas.selectAll('.circle_mouse_event_receiver').remove();
 	this.svgCircle.selectAll('circle').remove();
 	this.svgEdge.selectAll('line').remove();
 	this.svgHighlight.selectAll('circle').remove();
-	this.display();
+}
+
+// UI controls
+DataDisplay.prototype.holdHandles = function(){
+
+};
+
+DataDisplay.prototype.releaseHandles = function(){
+
 };

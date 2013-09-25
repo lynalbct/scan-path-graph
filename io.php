@@ -85,6 +85,7 @@ for ( $i = 0; $i < count($data); $i++ ){
 }
 $parsed_data['data'] = $dataArray;
 $parsed_data['sample_rate'] = $sampleRate;
+$parsed_data['scale'] = $scale;
 
 //output the response
 echo json_encode($parsed_data);
