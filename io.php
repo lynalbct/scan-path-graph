@@ -2,41 +2,46 @@
 header('Content-type: application/json');
 require_once('PhpConsole.php');
 PhpConsole::start();
+
 //get the q parameter from URL
 $fname=$_GET['f'];
 
 $DATA_FOLDER = 'data/';
 
-// Fixation data
-$fh = fopen($DATA_FOLDER . $fname . '/C21.fxn','r');
-$initialContent = array();
-while ($line = fgets($fh)) {
-  array_push($initialContent, $line);
-}
-fclose($fh);
-$sampleRate = intval($initialContent[8]);
-$fixRegPoints = array_slice($initialContent, 11, 4);
-$fixations = array_slice($initialContent, 17);
 $parsed_data = array();
 
+// Fixation data
+$fixationFile = fopen($DATA_FOLDER . $fname . '/C21.fxn','r');
+$initialFixation = array();
+while ($line = fgets($fixationFile) and count($initialFixation) < 16) {
+  array_push($initialFixation, $line);
+}
+fclose($fixationFile);
+$sampleRate = intval($initialFixation[8]);
+$fixRegPoints = array_slice($initialFixation, 11, 4);
+
 // Display registration points
-$fh = fopen($DATA_FOLDER . '/' . $fname . '.igr','r');
+$regFile = fopen($DATA_FOLDER . '/' . $fname . '.igr','r');
 $initialRegContent = array();
-while ($line = fgets($fh)) {
+while ($line = fgets($regFile)) {
   array_push($initialRegContent, $line);
 }
-fclose($fh);
+fclose($regFile);
 $dispRegPoints = array_map('intval', explode(' ', $initialRegContent[4]));
+
+// Raw data
+$dataFile = fopen($DATA_FOLDER . $fname . '/C21.tda','r');
+$initialDataContent = array();
+while ($line = fgets($dataFile)) {
+  array_push($initialDataContent, $line);
+}
+fclose($dataFile);
+$data = array_slice($initialDataContent, 25);
 
 function splitLine( $line )
 {
-  $parts = array_map('intval', explode(' ', $line));
+  $parts = array_map('intval', preg_split('/\s+/', $line));
   return $parts;
-}
-function interval( $startSample, $stopSample ){
-  global $sampleRate;
-  $sampleCount = $stopSample - $startSample + 1;
-  return (1000 / $sampleRate) * $sampleCount;
 }
 function scaling(){
   global $fixRegPoints;
@@ -66,16 +71,20 @@ function scaling(){
 }
 
 $scale = scaling();
-for ( $i = 0; $i < count($fixations); $i++ ){
+$dataArray = array();
+for ( $i = 0; $i < count($data); $i++ ){
   $object = array();
-  $lineData = splitLine($fixations[$i]);
+  $lineData = splitLine($data[$i]);
 //  DispNewH = (FixNewH + OffsetH) * ScaleH
 //  DispNewV = (FixNewV + OffsetV) * ScaleV
-  $object[0] = ($lineData[2] + $scale['offsetX']) * $scale['scaleX'];
-  $object[1] = ($lineData[3] + $scale['offsetY']) * $scale['scaleY'];
-  $object[2] = interval($lineData[0], $lineData[1]);
-  $parsed_data[$i] = $object;
+  if ($lineData[2] !== 0 and $lineData[3] !== 0){
+    $object[0] = ($lineData[2] + $scale['offsetX']) * $scale['scaleX'];
+    $object[1] = ($lineData[3] + $scale['offsetY']) * $scale['scaleY'];
+    array_push($dataArray, $object);
+  }
 }
+$parsed_data['data'] = $dataArray;
+$parsed_data['sample_rate'] = $sampleRate;
 
 //output the response
 echo json_encode($parsed_data);
