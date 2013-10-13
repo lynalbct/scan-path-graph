@@ -284,11 +284,19 @@ DataDisplay.prototype.newCircle = function( fixation ){
 				self.newEdgeWalk( fixation, scale );
 				self.newFixationSpread( fixation, scale );
 			}, 2000);
+			self.trigger('customMouseIn',self.canvas.select('#slidebar_key_'+fixation.idx).node());
+			self.canvas.select('#slidebar_key_'+fixation.idx)
+				.style('opacity',0.8)
+				.style('height','2.4em');
 		})
 		.on('mouseleave', function(){
 			self.removeInfo();
 			self.lightAll();
 			clearInterval(self.animationInterval);
+			self.trigger('customMouseOut',self.canvas.select('#slidebar_key_'+fixation.idx).node());
+			self.canvas.select('#slidebar_key_'+fixation.idx)
+				.style('opacity',0.2)
+				.style('height','2.2em');
 		});
 };
 
@@ -543,14 +551,37 @@ DataDisplay.prototype.releaseHandles = function(){
 	this.canvas.select('#handles').style('opacity',1);
 };
 
+DataDisplay.prototype.trigger = function(event, target){
+	var evt = document.createEvent('MouseEvents');
+	evt.initMouseEvent(event, false, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
+	target.dispatchEvent(evt);
+}
+
 DataDisplay.prototype.newSlidebarKey = function( fixation ){
 	var slidebar = this.canvas.select('#slidebar'),
 		totalW = parseInt(slidebar.style('width')),
 		scaleS = fixation.start / this.totalTime,
 		scaleE = fixation.end / this.totalTime,
 		l = scaleS * totalW,
-		w = (scaleE - scaleS) * totalW;
-	slidebar.append('div').attr('class','slidebar_key').attr('id','slidebar_key_'+fixation.idx).style('left', l).style('width', w);
+		w = (scaleE - scaleS) * totalW,
+		self = this,
+		rect = self.canvas.select('#circle_mouse_event_receiver_'+fixation.idx).node(),
+		key = slidebar.append('div').attr('class','slidebar_key').attr('id','slidebar_key_'+fixation.idx).style('left', l).style('width', w);
+	key.on('mouseenter', function(){
+			self.trigger('mouseenter', rect);
+			slidebar.append('div').attr('class','slidebar_key_decor').style('left', l).text(fixation.idx);
+		})
+		.on('mouseleave', function(){
+			self.trigger('mouseleave', rect);
+			slidebar.selectAll('.slidebar_key_decor').remove();
+		})
+		// Prevent infinite loop on event calls
+		.on('customMouseIn', function(){
+			slidebar.append('div').attr('class','slidebar_key_decor').style('left', l).text(fixation.idx);
+		})
+		.on('customMouseOut', function(){
+			slidebar.selectAll('.slidebar_key_decor').remove();
+		});
 };
 
 DataDisplay.prototype.populateUiHandles = function(){

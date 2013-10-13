@@ -69,12 +69,18 @@
 }
 
 #slidebar{
-	height: 2.2em;
+	height: 3em;
 	position: relative;
 	background-image: url(slidebar.svg);
 	background-size: 100% 2em;
 	background-repeat: no-repeat;
-	background-position: 0 0.2em;
+	background-position: 0 1em;
+}
+
+.slidebar_key_decor{
+	font-size: 0.5em;
+	position: absolute;
+	top: 0;
 }
 
 .slidebar_key{
@@ -82,4 +88,13 @@
 	background-color: rgba(0,0,0,1);
 	height: 2.2em;
 	opacity: 0.2;
+	bottom: 0;
+	border-left: 1px solid #DDD;
+	transition: height 0.2s, opacity 0.2s;
+	-webkit-transition: height 0.2s, opacity 0.2s;
+}
+
+.slidebar_key:hover{
+	height: 2.4em;
+	opacity: 0.8;
 }
