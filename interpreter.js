@@ -245,10 +245,16 @@ DataDisplay.prototype.calcCircleIntersect = function( pOutside, pCircle, r ){
 	}
 };
 
+DataDisplay.prototype.calcDistance = function( a, b ){
+	var y = a.y - b.y,
+		x = a.x - b.x;
+	return Math.sqrt(x * x + y * y);
+};
+
 DataDisplay.prototype.calcScreenCenterV = function(){
 	var pos = window.innerHeight / 2;
 	return pos;
-}
+};
 
 // Visualization elements
 
@@ -275,12 +281,30 @@ DataDisplay.prototype.newCircle = function( fixation ){
 		.style('height', fixation.r * 2);
 	rect.on('mouseenter', function(){
 			self.newInfo( fixation );
-			self.newCircleBurst( fixation, scale );
+			self.removeRollover();
+			self.newRollover( fixation );
+			//self.newCircleBurst( fixation, scale );
 			self.newEdgeWalk( fixation, scale );
 			self.newFixationSpread( fixation, scale );
 			self.dimUnrelated( fixation.idx );
 			self.animationInterval = setInterval(function(){
-				self.newCircleBurst( fixation, scale );
+				//self.newCircleBurst( fixation, scale );
+				self.newEdgeWalk( fixation, scale );
+				self.newFixationSpread( fixation, scale );
+			}, 2000);
+			self.trigger('customMouseIn',self.canvas.select('#slidebar_key_'+fixation.idx).node());
+			self.canvas.select('#slidebar_key_'+fixation.idx)
+				.style('opacity',0.8)
+				.style('height','2.4em');
+		})
+		.on('mousefocus', function(){
+			self.newInfo( fixation );
+			//self.newCircleBurst( fixation, scale );
+			self.newEdgeWalk( fixation, scale );
+			self.newFixationSpread( fixation, scale );
+			self.dimUnrelated( fixation.idx );
+			self.animationInterval = setInterval(function(){
+				//self.newCircleBurst( fixation, scale );
 				self.newEdgeWalk( fixation, scale );
 				self.newFixationSpread( fixation, scale );
 			}, 2000);
@@ -346,12 +370,50 @@ DataDisplay.prototype.removeInfo = function(){
 	this.canvas.select('#infoPanel').remove();
 };
 
-DataDisplay.prototype.newRollover = function(){
-
+DataDisplay.prototype.newRollover = function( p ){
+	var overlap = [], i, maxL = p.x - p.r, maxR = p.x + p.r, self = this;
+	for (i = 0; i < this.fixationData.length; i++){
+		var f = this.fixationData[i];
+		if (p.r > this.calcDistance(f, p)){
+			if (f.x - f.r < maxL){
+				maxL = f.x - f.r;
+			}
+			if (f.x + f.r > maxR){
+				maxR = f.x + f.r
+			}
+			overlap.push(f);
+		}
+	}
+	if (overlap.length > 1){
+		var w = 80,
+			left = maxR;
+		if (left + w > this.imageWidth){
+			left = maxL - w;
+		}
+		var panel = this.canvas.append('div').attr('id','rolloverPanel')
+				.style('left',left)
+				.style('max-width',w);
+		for (i = 0; i < overlap.length; i++){
+			var node = panel.append('div');
+			node.text('#'+overlap[i].idx+' '+parseInt(overlap[i].ftime)+'ms').attr('class','text-bold');
+			node.attr('data','#circle_mouse_event_receiver_'+overlap[i].idx);
+		}
+		panel.selectAll('div')
+			.on('mouseenter', function(){
+				var rect = self.canvas.select(d3.select(this).attr('data')).node();
+				self.trigger('mousefocus', rect);
+			})
+			.on('mouseleave', function(){
+				var rect = self.canvas.select(d3.select(this).attr('data')).node();
+				self.trigger('mouseleave', rect);
+			});
+		panel.style( 'top', p.y - parseInt(panel.style('height')) / 2);
+		panel.on('mouseleave', this.removeRollover.bind(this));
+	}
 };
 
 DataDisplay.prototype.removeRollover = function(){
-
+	this.canvas.select('#rolloverPanel').remove();
 };
 
 // DOM decorations
@@ -490,7 +552,7 @@ DataDisplay.prototype.stepBackward = function(){
 
 DataDisplay.prototype.display = function(){
 	this.holdHandles();
-	d3.select('body').append('div').attr('id','blocking');
+	this.canvas.append('div').attr('id','blocking');
 	// display all points, with edges; auto step forward
 	this.key = 0;
 	self = this;
@@ -568,7 +630,7 @@ DataDisplay.prototype.newSlidebarKey = function( fixation ){
 		rect = self.canvas.select('#circle_mouse_event_receiver_'+fixation.idx).node(),
 		key = slidebar.append('div').attr('class','slidebar_key').attr('id','slidebar_key_'+fixation.idx).style('left', l).style('width', w);
 	key.on('mouseenter', function(){
-			self.trigger('mouseenter', rect);
+			self.trigger('mousefocus', rect);
 			slidebar.append('div').attr('class','slidebar_key_decor').style('left', l).text(fixation.idx);
 		})
 		.on('mouseleave', function(){
