@@ -34,6 +34,7 @@ DataDisplay = function dataDisplay( imageName, imageExt ){
 	this.sampleRate = 0;
 	this.rawData = null;
 	this.fixationData = [];
+	this.totalTime = 0;
 	// Event properties
 	this.isPaused = false;
 
@@ -66,25 +67,6 @@ DataDisplay.prototype.refreshOnImageReload = function( fName ){
 
 // Communication
 
-DataDisplay.prototype.loadData = function(){
-	var self = this;
-	this.newLoadingScreen( this.string.loadData );
-	// PHP connector
-	$.ajax({
-		url: 'io.php?f='+this.imageName,
-		dataType: 'json',
-		success: function( data ){
-			self.rawData = data;
-			self.removeLoadingScreen();
-			self.parseRaw();
-			self.display();
-		},
-		error: function(xhr, ts, et){
-			console.log(xhr);
-		}
-	});
-};
-
 DataDisplay.prototype.loadImage = function(){
 	this.newLoadingScreen( this.string.loadImage );
 	var src = 'data/'+this.imageName+this.imageExt,
@@ -108,6 +90,26 @@ DataDisplay.prototype.loadImage = function(){
 	});
 };
 
+DataDisplay.prototype.loadData = function(){
+	var self = this;
+	this.newLoadingScreen( this.string.loadData );
+	// PHP connector
+	$.ajax({
+		url: 'io.php?f='+this.imageName,
+		dataType: 'json',
+		success: function( data ){
+			self.rawData = data;
+			self.removeLoadingScreen();
+			self.parseRaw();
+			self.populateUiHandles();
+			self.display();
+		},
+		error: function(xhr, ts, et){
+			console.log(xhr);
+		}
+	});
+};
+
 // Parser
 
 DataDisplay.prototype.parseRaw = function(){
@@ -123,6 +125,7 @@ DataDisplay.prototype.parseRaw = function(){
 	this.sampleRate = this.rawData.sample_rate;
 	this.scaling = this.rawData.scale;
 	this.rawData = d;
+	this.totalTime = this.calcInterval(d.length);
 	this.parseFix();
 	this.removeLoadingScreen();
 };
@@ -132,39 +135,56 @@ DataDisplay.prototype.parseFix = function(){
 		maxR = 0;
 	this.criteria.errX *= this.scaling.scaleX;
 	this.criteria.errY *= this.scaling.scaleY;
-	for (i = 0; i < this.rawData.length; i++){
-		var c = this.rawData[i],
-			fixation = {
-				'x': c.x,
-				'y': c.y
-			},
-			sampleCount = 1;
-		for (var j = i + 1; j < this.rawData.length; j++){
-			if (
-				this.calcError( this.rawData[j].x, c.x, this.criteria.errX) &&
-				this.calcError( this.rawData[j].y, c.y, this.criteria.errY) ){
-				sampleCount++;
-				fixation.x += this.rawData[j].x;
-				fixation.y += this.rawData[j].y;
-			} else {
-				i = j;
-				break;
+	var c,
+	rawArray = {
+		'x': [],
+		'y': [],
+		'start': 0
+	},
+	fixation = {},
+	radiusMin = 5;
+	radiusMax = 40;
+
+	var c = this.rawData[i];
+	rawArray.x.push(c.x);
+	rawArray.y.push(c.y);
+	rawArray.start = this.calcInterval(i);
+	for (i = 0; i < this.rawData.length - 1; i++){
+		if (
+			this.calcError( this.rawData[i+1].x, this.rawData[i].x, this.criteria.errX) &&
+			this.calcError( this.rawData[i+1].y, this.rawData[i].y, this.criteria.errY) ){
+			rawArray.x.push(this.rawData[i+1].x);
+			rawArray.y.push(this.rawData[i+1].y);
+		} else {
+			if (this.calcInterval(rawArray.x.length) >= this.criteria.minTime ){
+				idx++;
+				fixation.x = this.calcAvg(rawArray.x);
+				fixation.y = this.calcAvg(rawArray.y);
+				fixation.ftime = this.calcInterval(rawArray.x.length);
+				fixation.stdX = this.calcStd(rawArray.x);
+				fixation.stdY = this.calcStd(rawArray.y);
+				fixation.idx = idx;
+				fixation.start = rawArray.start;
+				fixation.end = rawArray.start + this.calcInterval(rawArray.x.length);
+				d.push(fixation);
+				if (fixation.ftime > maxR){
+					maxR = fixation.ftime;
+				}
+				fixation = {};
 			}
-		}
-		if (this.calcInterval(sampleCount) >= this.criteria.minTime ){
-			idx++;
-			fixation.x = fixation.x / sampleCount;
-			fixation.y = fixation.y / sampleCount;
-			fixation.ftime = this.calcInterval(sampleCount);
-			fixation.idx = idx;
-			d.push(fixation);
-			if (fixation.ftime > maxR){
-				maxR = fixation.ftime;
-			}
+			rawArray = {
+				'x': [],
+				'y': [],
+				'start': 0
+			};
+			c = this.rawData[i];
+			rawArray.x.push(c.x);
+			rawArray.y.push(c.y);
+			rawArray.start = this.calcInterval(i);
 		}
 	}
 	for (i = 0; i < d.length; i++ ){
-		d[i].r = d[i].ftime / maxR * 50;
+		d[i].r = d[i].ftime / maxR * (radiusMax - radiusMin) + radiusMin;
 	}
 	this.dataSize = d.length;
 	this.fixationData = d;
@@ -180,6 +200,23 @@ DataDisplay.prototype.getFixationCriteria = function(){
 
 DataDisplay.prototype.calcInterval = function( sampleCount ){
 	return (1000 / this.sampleRate) * sampleCount;
+};
+
+DataDisplay.prototype.calcStd = function( array ){
+	var avg = this.calcAvg(array), i,
+	sum = 0;
+	for (i = 0; i < array.length; i++){
+		sum += Math.pow(array[i] - avg, 2);
+	}
+	return Math.sqrt( sum / array.length );
+};
+
+DataDisplay.prototype.calcAvg = function( array ){
+	var sum = 0, i;
+	for (i = 0; i < array.length; i++){
+		sum += array[i];
+	}
+	return sum / array.length;
 };
 
 DataDisplay.prototype.calcError = function( target, base, tolerance ){
@@ -208,6 +245,11 @@ DataDisplay.prototype.calcCircleIntersect = function( pOutside, pCircle, r ){
 	}
 };
 
+DataDisplay.prototype.calcScreenCenterV = function(){
+	var pos = ( parseInt(this.canvas.style('height')) - parseInt(this.canvas.style('margin-top')) )/ 2;
+	return pos;
+}
+
 // Visualization elements
 
 DataDisplay.prototype.newCircle = function( fixation ){
@@ -220,11 +262,12 @@ DataDisplay.prototype.newCircle = function( fixation ){
 		.attr('cy', fixation.y)
 		.attr('stroke-width', 4)
 		.attr('stroke', this.colorScale(scale) )
-		.attr('fill-opacity', 0.5)
+		.attr('fill-opacity', 0.3)
 		.attr('r', 0)
 		.transition().duration(300)
 			.attr('r', fixation.r );
 	rect.attr('class', 'circle_mouse_event_receiver')
+		.attr('id', 'circle_mouse_event_receiver_'+fixation.idx)
 		.style('position','absolute')
 		.style('left', fixation.x - fixation.r)
 		.style('top', fixation.y - fixation.r)
@@ -234,35 +277,19 @@ DataDisplay.prototype.newCircle = function( fixation ){
 			self.newInfo( fixation );
 			self.newCircleBurst( fixation, scale );
 			self.newEdgeWalk( fixation, scale );
+			self.newFixationSpread( fixation, scale );
+			self.dimUnrelated( fixation.idx );
 			self.animationInterval = setInterval(function(){
 				self.newCircleBurst( fixation, scale );
 				self.newEdgeWalk( fixation, scale );
+				self.newFixationSpread( fixation, scale );
 			}, 2000);
 		})
 		.on('mouseleave', function(){
 			self.removeInfo();
+			self.lightAll();
 			clearInterval(self.animationInterval);
 		});
-};
-
-DataDisplay.prototype.decorateCircle = function( fixation, isStart ){
-	var scale = fixation.idx / this.dataSize * 500
-		self = this;
-		circle = this.svgHighlight.append('circle');
-	circle.style('fill', 'transparent' )
-		.attr('cx', fixation.x)
-		.attr('cy', fixation.y)
-		.attr('stroke-width', 4)
-		.attr('stroke', 'black' )
-		.attr('stroke-dasharray', '5,5')
-		.attr('r', 0)
-		.transition().duration(300)
-			.attr('r', fixation.r + 2 );
-	if (isStart){
-		circle.text('S');
-	} else {
-		circle.text('E');
-	}
 };
 
 DataDisplay.prototype.newEdge = function( from, to ){
@@ -283,6 +310,43 @@ DataDisplay.prototype.newEdge = function( from, to ){
 			.attr('stroke-width', 3)
 		.attr('stroke', this.colorScale(scale) );
 };
+
+DataDisplay.prototype.newInfo = function( p ){
+	var w = 80, h = 60,
+		top = p.y - h - p.r - 10;
+	if (top < 0){
+		top = p.y + p.r + 10;
+	}
+	var panel = this.canvas.append('div').attr('id','infoPanel')
+		.style('left',p.x - w/2)
+		.style('top', top)
+		.style('width',w)
+		.style('height',h),
+		panelDiv = panel.append('div');
+	if (p.idx === 1){
+		panelDiv.append('a').text('#'+p.idx+' START').attr('class','text-bold');
+	} else if (p.idx === this.dataSize){
+		panelDiv.append('a').text('#'+p.idx+' END').attr('class','text-bold');
+	} else {
+		panelDiv.append('a').text('#'+p.idx).attr('class','text-bold');
+	}
+	panelDiv.append('a').text('x:'+parseInt(p.x)+', y:'+parseInt(p.y));
+	panelDiv.append('a').text( parseInt(p.ftime)+' ms');
+};
+
+DataDisplay.prototype.removeInfo = function(){
+	this.canvas.select('#infoPanel').remove();
+};
+
+DataDisplay.prototype.newRollover = function(){
+
+};
+
+DataDisplay.prototype.removeRollover = function(){
+
+};
+
+// DOM decorations
 
 DataDisplay.prototype.newCircleBurst = function( fixation, color ){
 	this.svgEffect.append('circle')
@@ -330,36 +394,53 @@ DataDisplay.prototype.newEdgeWalk = function( fixation, color ){
 	}
 };
 
-DataDisplay.prototype.newInfo = function( p ){
-	var w = 80, h = 60,
-		panel = this.canvas.append('div').attr('id','infoPanel')
-		.style('left',p.x - w/2)
-		.style('top',p.y - h - p.r - 10)
-		.style('width',w)
-		.style('height',h),
-		panelDiv = panel.append('div');
-	if (p.idx === 1){
-		panelDiv.append('a').text('#'+p.idx+' START').attr('class','text-bold');
-	} else if (p.idx === this.dataSize){
-		panelDiv.append('a').text('#'+p.idx+' END').attr('class','text-bold');
+DataDisplay.prototype.newFixationSpread = function( fixation, color ){
+	var rect = this.svgHighlight.append('rect');
+	rect.attr('x', fixation.x - fixation.stdX)
+		.attr('y', fixation.y - fixation.stdY)
+		.attr('fill', this.colorScale(color))
+		.attr('width', fixation.stdX * 2)
+		.attr('height', fixation.stdY * 2)
+		.attr('opacity', 0)
+		.transition().duration(400).attr('opacity', 1.0).transition().duration(400).attr('opacity', 0).remove();
+};
+
+DataDisplay.prototype.decorateCircle = function( fixation, isStart ){
+	var scale = fixation.idx / this.dataSize * 500
+		self = this;
+		circle = this.svgHighlight.append('circle');
+	circle.style('fill', 'transparent' )
+		.attr('cx', fixation.x)
+		.attr('cy', fixation.y)
+		.attr('stroke-width', 4)
+		.attr('stroke', 'black' )
+		.attr('stroke-dasharray', '5,5')
+		.attr('r', 0)
+		.transition().duration(300)
+			.attr('r', fixation.r + 2 );
+	if (isStart){
+		circle.text('S');
 	} else {
-		panelDiv.append('a').text('#'+p.idx).attr('class','text-bold');
+		circle.text('E');
 	}
-	panelDiv.append('a').text('x:'+parseInt(p.x)+', y:'+parseInt(p.y));
-	panelDiv.append('a').text( parseInt(p.ftime)+' ms');
 };
 
-DataDisplay.prototype.removeInfo = function(){
-	this.canvas.select('#infoPanel').remove();
+DataDisplay.prototype.dimUnrelated = function( idx ){
+	this.svgCircle.selectAll('circle').filter(':not(:nth-child('+idx+'))').transition().style('opacity', 0.3);
+	var edgeSelection;
+	if (idx > 1 && idx < this.dataSize){
+		edgeSelection = this.svgEdge.selectAll('line').filter(':not(:nth-child('+idx+'))').filter(':not(:nth-child('+(idx-1)+'))');
+	} else if (idx === 1){
+		edgeSelection = this.svgEdge.selectAll('line').filter(':not(:nth-child('+idx+'))');
+	} else {
+		edgeSelection = this.svgEdge.selectAll('line').filter(':not(:nth-child('+(idx-1)+'))');
+	}
+	edgeSelection.transition().style('opacity', 0.3);
 };
 
-DataDisplay.prototype.newLoadingScreen = function( hint ){
-	var panel = this.canvas.append('div').attr('id','loadingScreen');
-	panel.text( hint ).attr('class','text-bold');
-};
-
-DataDisplay.prototype.removeLoadingScreen = function(){
-	this.canvas.select('#loadingScreen').remove();
+DataDisplay.prototype.lightAll = function(){
+	this.svgCircle.selectAll('circle').transition().style('opacity', 1.0);
+	this.svgEdge.selectAll('line').transition().style('opacity', 1.0);
 };
 
 // Data display methods
@@ -368,6 +449,7 @@ DataDisplay.prototype.stepForward = function(){
 	// step frames of displaying points
 	if ( this.key < this.dataSize ){
 		this.newCircle( this.fixationData[this.key] );
+		this.newSlidebarKey( this.fixationData[this.key] );
 		if (this.key !== 0){
 			this.newEdge( this.fixationData[this.key - 1], this.fixationData[this.key] );
 		}
@@ -388,6 +470,7 @@ DataDisplay.prototype.stepBackward = function(){
 		this.canvas.selectAll('circle_mouse_event_receiver').filter(':last-child').remove();
 		this.svgCircle.selectAll('circle').filter(':last-child').remove();
 		this.svgEdge.selectAll('line').filter(':last-child').remove();
+		this.canvas.select('#slidebar').selectAll('.slidebar_key').filter(':last-child').remove();
 		if (this.key === this.dataSize - 1 || this.key === 0){
 			tihs.svgHighlight.selectAll('circle').filter(':last-child').remove();
 		}
@@ -399,6 +482,7 @@ DataDisplay.prototype.stepBackward = function(){
 
 DataDisplay.prototype.display = function(){
 	this.holdHandles();
+	d3.select('body').append('div').attr('id','blocking');
 	// display all points, with edges; auto step forward
 	this.key = 0;
 	self = this;
@@ -410,6 +494,7 @@ DataDisplay.prototype.display = function(){
 			clearInterval(self.popInterval);
 			self.popInterval = null;
 			self.releaseHandles();
+			d3.select('body').select('#blocking').remove();
 		}
 	}, 100);
 };
@@ -449,9 +534,68 @@ DataDisplay.prototype.clear = function(){
 
 // UI controls
 DataDisplay.prototype.holdHandles = function(){
-
+	this.canvas.select('#handles').append('div').attr('id','blocking');
+	this.canvas.select('#handles').style('opacity',0.2);
 };
 
 DataDisplay.prototype.releaseHandles = function(){
+	this.canvas.select('#handles').select('#blocking').remove();
+	this.canvas.select('#handles').style('opacity',1);
+};
 
+DataDisplay.prototype.newSlidebarKey = function( fixation ){
+	var slidebar = this.canvas.select('#slidebar'),
+		totalW = parseInt(slidebar.style('width')),
+		scaleS = fixation.start / this.totalTime,
+		scaleE = fixation.end / this.totalTime,
+		l = scaleS * totalW,
+		w = (scaleE - scaleS) * totalW;
+	slidebar.append('div').attr('class','slidebar_key').attr('id','slidebar_key_'+fixation.idx).style('left', l).style('width', w);
+};
+
+DataDisplay.prototype.populateUiHandles = function(){
+	var panel = this.newPanel('handles'),
+		slidebarLayout = panel.append('div').attr('class','vertical_layout');
+		userControlLayout = panel.append('div').attr('class','vertical_layout');
+	slidebarLayout
+		.append('div').attr('id','slidebar');
+	var playback = userControlLayout.append('div').attr('id','playback'),
+		settings = userControlLayout.append('div').attr('id','settings');
+	panel.style('top', this.imageHeight);
+	/*
+	playback.append(this.newButton('stepbackButton','Step backward')[0][0]);
+	playback.append(this.newButton('playButton','Play')[0][0]);
+	playback.append(this.newButton('stepforButton','Step forward')[0][0]);
+	settings.append(this.newInput('Dev V: ')[0][0]);
+	settings.append(this.newInput('Dev H: ')[0][0]);
+	settings.append(this.newInput('Threshold(ms): ')[0][0]);
+	*/
+};
+
+DataDisplay.prototype.newButton = function( id, hint ){
+
+};
+
+DataDisplay.prototype.newInput = function( label ){
+
+};
+
+DataDisplay.prototype.newPanel = function( id ){
+	var panel = this.canvas.append('div').attr('class','panel').attr('id',id);
+	return panel;
+};
+
+DataDisplay.prototype.removePanel = function( id ){
+	this.canvas.select('#'+id).remove();
+};
+
+DataDisplay.prototype.newLoadingScreen = function( hint ){
+	var panel = this.newPanel('loadingScreen'),
+	screen = panel.append('div').attr('class','loadingScreen');
+	screen.text( hint );
+	panel.style('top', this.calcScreenCenterV() - parseInt(panel.style('height')) / 2 );
+};
+
+DataDisplay.prototype.removeLoadingScreen = function(){
+	this.canvas.select('#loadingScreen').remove();
 };
