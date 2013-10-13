@@ -246,7 +246,7 @@ DataDisplay.prototype.calcCircleIntersect = function( pOutside, pCircle, r ){
 };
 
 DataDisplay.prototype.calcScreenCenterV = function(){
-	var pos = ( parseInt(this.canvas.style('height')) - parseInt(this.canvas.style('margin-top')) )/ 2;
+	var pos = window.innerHeight / 2;
 	return pos;
 }
 
@@ -592,23 +592,28 @@ DataDisplay.prototype.populateUiHandles = function(){
 		.append('div').attr('id','slidebar');
 	var playback = userControlLayout.append('div').attr('id','playback'),
 		settings = userControlLayout.append('div').attr('id','settings');
-	panel.style('top', this.imageHeight);
-	/*
-	playback.append(this.newButton('stepbackButton','Step backward')[0][0]);
-	playback.append(this.newButton('playButton','Play')[0][0]);
-	playback.append(this.newButton('stepforButton','Step forward')[0][0]);
-	settings.append(this.newInput('Dev V: ')[0][0]);
-	settings.append(this.newInput('Dev H: ')[0][0]);
-	settings.append(this.newInput('Threshold(ms): ')[0][0]);
-	*/
+	panel.style('top', 0).style('position','fixed');
+	this.newButton('stepbackButton','Step backward', playback);
+	this.newButton('playButton','Play', playback);
+	this.newButton('stepforButton','Step forward', playback);
+	this.newSeparator( playback );
+	this.newInput('devHInput','Dev V: ', settings);
+	this.newInput('devVInput','Dev H: ', settings);
+	this.newInput('thresholdInput','Threshold(ms): ', settings);
+	this.canvas.style('margin-top',panel.style('height'));
 };
 
-DataDisplay.prototype.newButton = function( id, hint ){
-
+DataDisplay.prototype.newButton = function( id, hint, context ){
+	context.append('a').attr('id',id).attr('title',hint).attr('class','ui_button');
 };
 
-DataDisplay.prototype.newInput = function( label ){
+DataDisplay.prototype.newInput = function( id, label, context ){
+	context.append('div').attr('class','ui_input_label').style('margin-left','0.25em').text(label);
+	context.append('input').attr('id',id).attr('class','ui_input').style('margin','auto 0.25em');
+};
 
+DataDisplay.prototype.newSeparator = function( context ){
+	context.append('div').attr('class','ui_separator');
 };
 
 DataDisplay.prototype.newPanel = function( id ){

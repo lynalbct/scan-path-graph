@@ -24,6 +24,7 @@
 	display: inline-block;
 	font-size: 2em;
 	font-weight: bold;
+	font-family: arial;
 	padding-top: 1em;
 	padding-bottom: 1em;
 }
@@ -51,13 +52,13 @@
 	border-top: 1px solid rgba(0,0,0,0.2);
 	border-bottom: 1px solid rgba(0,0,0,0.2);
 	box-shadow: 0 0 2px #DDD;
-	background-color: rgba(255,255,255,0.6);
+	background-color: rgba(255,255,255,0.9);
 }
 
 .vertical_layout{
 	padding-left: 1em;
 	padding-right: 1em;
-	padding-top: 1em;
+	padding-top: 0.5em;
 }
 
 #blocking{
@@ -71,7 +72,7 @@
 #slidebar{
 	height: 3em;
 	position: relative;
-	background-image: url(slidebar.svg);
+	background-image: url(images/slidebar.svg);
 	background-size: 100% 2em;
 	background-repeat: no-repeat;
 	background-position: 0 1em;
@@ -79,6 +80,7 @@
 
 .slidebar_key_decor{
 	font-size: 0.5em;
+	font-family: arial;
 	position: absolute;
 	top: 0;
 }
@@ -97,4 +99,61 @@
 .slidebar_key:hover{
 	height: 2.4em;
 	opacity: 0.8;
+}
+
+#playback,
+#settings{
+	display: inline-block;
+	float: left;
+	height: 2em;
+}
+
+.ui_button,
+.ui_input_label,
+.ui_input,
+.ui_separator{
+	display: inline-block;
+	float: left;
+	font-family: arial;
+	font-size: 0.7em;
+	line-height: 2em;
+	margin-bottom: 0.5em;
+	height: 2em;
+}
+
+.ui_input{
+	width: 5em;
+	border-radius: 4px;
+}
+
+.ui_button{
+	width: 2em;
+	height: 2em;
+	border: 1px solid rgba(0,0,0,0.2);
+	border-radius: 4px;
+	margin: auto 0.25em;
+	transition: border 0.2s;
+	-webkit-transition: border 0.2s;
+}
+
+.ui_button:hover{
+	border: 1px solid red;
+}
+
+#stepbackButton{
+	background-image: url(images/stepback.svg);
+}
+
+#playButton{
+	background-image: url(images/play.svg);
+}
+
+#stepforButton{
+	background-image: url(images/stepfor.svg);
+}
+
+.ui_separator{
+	width: 1px;
+	margin: auto 1em;
+	background-color: rgba(0,0,0,0.2);
 }
