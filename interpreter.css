@@ -1,28 +1,7 @@
-#infoPanel {
+#rolloverPanel{
 	position: absolute;
 	background-color: rgba(255,255,255,0.9);
 	border: 1px solid #CCC;
-	border-radius: 4px;
-	box-shadow: 0 0 5px #DDD;
-}
-
-#infoPanel a{
-	width: 100%;
-	float: left;
-	font-family: arial;
-	font-size: 0.6em;
-}
-
-#infoPanel div{
-	margin: 0.4em 0.4em;
-	line-height: 1em;
-}
-
-#rolloverPanel {
-	position: absolute;
-	background-color: rgba(255,255,255,0.9);
-	border: 1px solid #CCC;
-	border-radius: 4px;
 	box-shadow: 0 0 5px #DDD;
 }
 
@@ -39,12 +18,14 @@
 }
 
 #rolloverPanel div:hover{
-	background-color: rgba(255,0,0,0.2);
+	background-color: rgba(0,0,0,0.2);
 }
 
-
-#rolloverPanel div{
-	margin: 0.4em auto;
+.listPanel {
+	position: absolute;
+	background-color: rgba(255,255,255,0.9);
+	border: 1px solid #CCC;
+	box-shadow: 0 0 5px #DDD;
 }
 
 .loadingScreen {
@@ -82,12 +63,16 @@
 	border-bottom: 1px solid rgba(0,0,0,0.2);
 	box-shadow: 0 0 2px #DDD;
 	background-color: rgba(255,255,255,0.9);
+	z-index: 100;
 }
 
 .vertical_layout{
-	padding-left: 1em;
-	padding-right: 1em;
-	padding-top: 0.5em;
+	padding: 0.5em;
+}
+
+.vertical_layout_clear{
+	padding: 0.5em;
+	padding-bottom: 0;
 }
 
 #blocking{
@@ -102,90 +87,89 @@
 }
 
 #slidebar{
-	height: 3em;
+	height: 2em;
 	position: relative;
 	background-image: url(images/slidebar.svg);
-	background-size: 100% 2em;
+	background-size: 100% 1em;
 	background-repeat: no-repeat;
 	background-position: 0 1em;
-}
-
-.slidebar_key_decor{
-	font-size: 0.5em;
-	font-family: arial;
-	position: absolute;
-	top: 0;
+	overflow: hidden;
 }
 
 .slidebar_key{
 	position: absolute;
-	background-color: rgba(0,0,0,1);
-	height: 2.2em;
-	opacity: 0.2;
+	background-color: rgba(0,0,0,0.2);
+	height: 1em;
 	bottom: 0;
-	border-left: 1px solid #FFF;
-	transition: height 0.2s, opacity 0.2s;
-	-webkit-transition: height 0.2s, opacity 0.2s;
+	transition: background-color 0.2s;
+	-webkit-transition: background-color 0.2s;
 }
 
 .slidebar_key:hover{
-	height: 2.4em;
-	opacity: 0.8;
+	background-color: rgba(0,0,0,0.8);
 }
 
 #playback,
 #settings{
-	display: inline-block;
 	float: left;
 	height: 2em;
 }
 
-.ui_button,
-.ui_input_label,
-.ui_input,
 .ui_separator{
-	display: inline-block;
 	float: left;
-	font-family: arial;
-	font-size: 0.7em;
-	line-height: 2em;
-	margin-bottom: 0.5em;
 	height: 2em;
+	width: 1px;
+	margin: auto 0.5em;
+	background-color: rgba(0,0,0,0.2);
+}
+
+.ui_input_label,
+.ui_input{
+	display: inline-block;
+	font-family: arial;
+	font-size: 0.8em;
+	line-height: 1.5em;
+	height: 1.5em;
 }
 
 .ui_input{
-	width: 5em;
-	border-radius: 4px;
+	width: 4em;
 }
 
 .ui_button{
-	width: 2em;
-	height: 2em;
+	width: 1.5em;
+	height: 1.5em;
+	float: left;
 	border: 1px solid rgba(0,0,0,0.2);
-	border-radius: 4px;
-	margin: auto 0.25em;
+	margin: 0.25em 0.25em;
 	transition: border 0.2s;
 	-webkit-transition: border 0.2s;
 }
 
 .ui_button:hover{
-	border: 1px solid red;
+	border: 1px solid black;
 }
 
 #stepbackButton{
 	background-image: url(images/stepback.svg);
+	background-position: center center;
+	background-repeat: no-repeat;
 }
 
 #playButton{
 	background-image: url(images/play.svg);
+	background-position: center center;
+	background-repeat: no-repeat;
 }
 
 #stepforButton{
 	background-image: url(images/stepfor.svg);
+	background-position: center center;
+	background-repeat: no-repeat;
 }
 
-.ui_separator{
-	width: 1px;
-	margin: auto 1em;
-	background-color: rgba(0,0,0,0.2);
+#settingsDropdown{
+	background-image: url(images/settings.svg);
+	background-position: center center;
+	background-repeat: no-repeat;
 }

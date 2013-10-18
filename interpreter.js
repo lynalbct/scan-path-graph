@@ -132,7 +132,8 @@ DataDisplay.prototype.parseRaw = function(){
 
 DataDisplay.prototype.parseFix = function(){
 	var d = [], i = 0, idx = 0.
-		maxR = 0;
+		maxR = Number.NEGATIVE_INFINITY, minR = Number.POSITIVE_INFINITY,
+		maxDisp = Number.NEGATIVE_INFINITY;
 	this.criteria.errX *= this.scaling.scaleX;
 	this.criteria.errY *= this.scaling.scaleY;
 	var c,
@@ -142,7 +143,7 @@ DataDisplay.prototype.parseFix = function(){
 		'start': 0
 	},
 	fixation = {},
-	radiusMin = 5;
+	radiusMin = 2;
 	radiusMax = 40;
 
 	var c = this.rawData[i];
@@ -161,14 +162,18 @@ DataDisplay.prototype.parseFix = function(){
 				fixation.x = this.calcAvg(rawArray.x);
 				fixation.y = this.calcAvg(rawArray.y);
 				fixation.ftime = this.calcInterval(rawArray.x.length);
-				fixation.stdX = this.calcStd(rawArray.x);
-				fixation.stdY = this.calcStd(rawArray.y);
+				fixation.dispersion = this.calc2dDispersion(rawArray.x, rawArray.y);
 				fixation.idx = idx;
 				fixation.start = rawArray.start;
 				fixation.end = rawArray.start + this.calcInterval(rawArray.x.length);
 				d.push(fixation);
 				if (fixation.ftime > maxR){
 					maxR = fixation.ftime;
+				} else if (fixation.ftime < minR){
+					minR = fixation.ftime;
+				}
+				if (fixation.dispersion > maxDisp){
+					maxDisp = fixation.dispersion;
 				}
 				fixation = {};
 			}
@@ -184,7 +189,8 @@ DataDisplay.prototype.parseFix = function(){
 		}
 	}
 	for (i = 0; i < d.length; i++ ){
-		d[i].r = d[i].ftime / maxR * (radiusMax - radiusMin) + radiusMin;
+		d[i].r = (d[i].ftime - minR) / (maxR - minR) * (radiusMax - radiusMin) + radiusMin;
+		d[i].relativeDisp = d[i].dispersion / maxDisp;
 	}
 	this.dataSize = d.length;
 	this.fixationData = d;
@@ -202,13 +208,13 @@ DataDisplay.prototype.calcInterval = function( sampleCount ){
 	return (1000 / this.sampleRate) * sampleCount;
 };
 
-DataDisplay.prototype.calcStd = function( array ){
-	var avg = this.calcAvg(array), i,
-	sum = 0;
-	for (i = 0; i < array.length; i++){
-		sum += Math.pow(array[i] - avg, 2);
+DataDisplay.prototype.calc2dDispersion = function( arrayX, arrayY ){
+	var avgX = this.calcAvg(arrayX), avgY = this.calcAvg(arrayY),
+		squareError = 0, i = 0;
+	for (i; i < arrayX.length; i++){
+		squareError+= ( Math.pow(arrayX[i] - avgX, 2) + Math.pow(arrayY[i] - avgY, 2) );
 	}
-	return Math.sqrt( sum / array.length );
+	return Math.sqrt( squareError / arrayX.length );
 };
 
 DataDisplay.prototype.calcAvg = function( array ){
@@ -263,64 +269,40 @@ DataDisplay.prototype.newCircle = function( fixation ){
 		self = this;
 		circle = this.svgCircle.append('circle');
 		rect = this.canvas.append('div');
+	var effect = function(){
+		self.newEdgeWalk( fixation, scale );
+		self.dimUnrelated( fixation.idx );
+		self.animationInterval = setInterval(function(){
+			self.newEdgeWalk( fixation, scale );
+		}, 2000);
+		self.trigger('customMouseIn',self.canvas.select('#slidebar_key_'+fixation.idx).node());
+		self.canvas.select('#slidebar_key_'+fixation.idx)
+			.style('background-color','rgba(0,0,0,0.8)');
+	};
 	circle.style('fill', this.colorScale(scale) )
-		.attr('cx', fixation.x)
-		.attr('cy', fixation.y)
-		.attr('stroke-width', 4)
-		.attr('stroke', this.colorScale(scale) )
+		.attr('cx', fixation.x).attr('cy', fixation.y)
+		.attr('stroke-width', 4).attr('stroke', this.colorScale(scale) )
 		.attr('fill-opacity', 0.3)
-		.attr('r', 0)
-		.transition().duration(300)
-			.attr('r', fixation.r );
+		.attr('r', 0).transition().duration(300).attr('r', fixation.r );
 	rect.attr('class', 'circle_mouse_event_receiver')
 		.attr('id', 'circle_mouse_event_receiver_'+fixation.idx)
 		.style('position','absolute')
-		.style('left', fixation.x - fixation.r)
-		.style('top', fixation.y - fixation.r)
-		.style('width', fixation.r * 2)
-		.style('height', fixation.r * 2);
+		.style('left', fixation.x - fixation.r).style('top', fixation.y - fixation.r)
+		.style('width', fixation.r * 2).style('height', fixation.r * 2);
 	rect.on('mouseenter', function(){
-			self.newInfo( fixation );
 			self.removeRollover();
 			self.newRollover( fixation );
-			//self.newCircleBurst( fixation, scale );
-			self.newEdgeWalk( fixation, scale );
-			self.newFixationSpread( fixation, scale );
-			self.dimUnrelated( fixation.idx );
-			self.animationInterval = setInterval(function(){
-				//self.newCircleBurst( fixation, scale );
-				self.newEdgeWalk( fixation, scale );
-				self.newFixationSpread( fixation, scale );
-			}, 2000);
-			self.trigger('customMouseIn',self.canvas.select('#slidebar_key_'+fixation.idx).node());
-			self.canvas.select('#slidebar_key_'+fixation.idx)
-				.style('opacity',0.8)
-				.style('height','2.4em');
+			effect();
 		})
 		.on('mousefocus', function(){
-			self.newInfo( fixation );
-			//self.newCircleBurst( fixation, scale );
-			self.newEdgeWalk( fixation, scale );
-			self.newFixationSpread( fixation, scale );
-			self.dimUnrelated( fixation.idx );
-			self.animationInterval = setInterval(function(){
-				//self.newCircleBurst( fixation, scale );
-				self.newEdgeWalk( fixation, scale );
-				self.newFixationSpread( fixation, scale );
-			}, 2000);
-			self.trigger('customMouseIn',self.canvas.select('#slidebar_key_'+fixation.idx).node());
-			self.canvas.select('#slidebar_key_'+fixation.idx)
-				.style('opacity',0.8)
-				.style('height','2.4em');
+			effect();
 		})
 		.on('mouseleave', function(){
-			self.removeInfo();
 			self.lightAll();
 			clearInterval(self.animationInterval);
 			self.trigger('customMouseOut',self.canvas.select('#slidebar_key_'+fixation.idx).node());
 			self.canvas.select('#slidebar_key_'+fixation.idx)
-				.style('opacity',0.2)
-				.style('height','2.2em');
+				.style('background-color','rgba(0,0,0,0.2)');
 		});
 };
 
@@ -328,18 +310,12 @@ DataDisplay.prototype.newEdge = function( from, to ){
 	var scale = (from.idx + to.idx) / 2 / this.dataSize * 500,
 		p1 = this.calcCircleIntersect( from, to, to.r ),
 		p2 = this.calcCircleIntersect( to, from, from.r ),
-		x1 = p1.x,
-		y1 = p1.y,
-		x2 = p2.x,
-		y2 = p2.y;
+		x1 = p1.x, y1 = p1.y,
+		x2 = p2.x, y2 = p2.y;
 	this.svgEdge.append('line')
-		.attr('x1', x1)
-		.attr('y1', y1)
-		.attr('x2', x2)
-		.attr('y2', y2)
-		.attr('stroke-width', 0)
-		.transition().duration(300)
-			.attr('stroke-width', 3)
+		.attr('x1', x1).attr('y1', y1)
+		.attr('x2', x2).attr('y2', y2)
+		.attr('stroke-width', 0).transition().duration(300).attr('stroke-width', 3)
 		.attr('stroke', this.colorScale(scale) );
 };
 
@@ -350,10 +326,8 @@ DataDisplay.prototype.newInfo = function( p ){
 		top = p.y + p.r + 10;
 	}
 	var panel = this.canvas.append('div').attr('id','infoPanel')
-		.style('left',p.x - w/2)
-		.style('top', top)
-		.style('width',w)
-		.style('height',h),
+		.style('left',p.x - w/2).style('top', top)
+		.style('width',w).style('height',h),
 		panelDiv = panel.append('div');
 	if (p.idx === 1){
 		panelDiv.append('a').text('#'+p.idx+' START').attr('class','text-bold');
@@ -418,20 +392,6 @@ DataDisplay.prototype.removeRollover = function(){
 
 // DOM decorations
 
-DataDisplay.prototype.newCircleBurst = function( fixation, color ){
-	this.svgEffect.append('circle')
-		.attr('fill', 'transparent')
-		.attr('r', fixation.r)
-		.attr('cx', fixation.x)
-		.attr('cy', fixation.y)
-		.attr('stroke-width', 4)
-		.attr('stroke', this.colorScale(color) )
-		.transition().duration(400)
-			.attr('r', fixation.r * 2 )
-			.attr('stroke-width', 0)
-			.remove();
-};
-
 DataDisplay.prototype.newEdgeWalk = function( fixation, color ){
 	var idx = fixation.idx - 1, a = null, b = null, c1, c2;
 	if (idx > 0){
@@ -444,35 +404,20 @@ DataDisplay.prototype.newEdgeWalk = function( fixation, color ){
 		c1 = this.svgEffect.append('circle')
 		.attr('fill', this.colorScale(color))
 		.attr('r', 5)
-		.attr('cx', a.x)
-		.attr('cy', a.y)
+		.attr('cx', a.x).attr('cy', a.y)
 		.transition().duration(400)
-			.attr('cx', fixation.x)
-			.attr('cy', fixation.y)
+			.attr('cx', fixation.x).attr('cy', fixation.y)
 			.remove();
 	}
 	if (b !== null){
 		c2 = this.svgEffect.append('circle')
 		.attr('fill', this.colorScale(color))
 		.attr('r', 5)
-		.attr('cx', fixation.x)
-		.attr('cy', fixation.y)
+		.attr('cx', fixation.x).attr('cy', fixation.y)
 		.transition().duration(400)
-			.attr('cx', b.x)
-			.attr('cy', b.y)
+			.attr('cx', b.x).attr('cy', b.y)
 			.remove();
 	}
-};
-
-DataDisplay.prototype.newFixationSpread = function( fixation, color ){
-	var rect = this.svgHighlight.append('rect');
-	rect.attr('x', fixation.x - fixation.stdX)
-		.attr('y', fixation.y - fixation.stdY)
-		.attr('fill', this.colorScale(color))
-		.attr('width', fixation.stdX * 2)
-		.attr('height', fixation.stdY * 2)
-		.attr('opacity', 0)
-		.transition().duration(400).attr('opacity', 1.0).transition().duration(400).attr('opacity', 0).remove();
 };
 
 DataDisplay.prototype.decorateCircle = function( fixation, isStart ){
@@ -480,19 +425,13 @@ DataDisplay.prototype.decorateCircle = function( fixation, isStart ){
 		self = this;
 		circle = this.svgHighlight.append('circle');
 	circle.style('fill', 'transparent' )
-		.attr('cx', fixation.x)
-		.attr('cy', fixation.y)
+		.attr('cx', fixation.x).attr('cy', fixation.y)
 		.attr('stroke-width', 4)
 		.attr('stroke', 'black' )
 		.attr('stroke-dasharray', '5,5')
 		.attr('r', 0)
 		.transition().duration(300)
 			.attr('r', fixation.r + 2 );
-	if (isStart){
-		circle.text('S');
-	} else {
-		circle.text('E');
-	}
 };
 
 DataDisplay.prototype.dimUnrelated = function( idx ){
@@ -629,39 +568,89 @@ DataDisplay.prototype.newSlidebarKey = function( fixation ){
 		self = this,
 		rect = self.canvas.select('#circle_mouse_event_receiver_'+fixation.idx).node(),
 		key = slidebar.append('div').attr('class','slidebar_key').attr('id','slidebar_key_'+fixation.idx).style('left', l).style('width', w);
+	key.style( 'height', parseInt(key.style('height')) * (1 + fixation.relativeDisp) );
 	key.on('mouseenter', function(){
 			self.trigger('mousefocus', rect);
-			slidebar.append('div').attr('class','slidebar_key_decor').style('left', l).text(fixation.idx);
+			self.newInfo(fixation);
 		})
 		.on('mouseleave', function(){
 			self.trigger('mouseleave', rect);
-			slidebar.selectAll('.slidebar_key_decor').remove();
+			self.removeInfo();
 		})
 		// Prevent infinite loop on event calls
 		.on('customMouseIn', function(){
-			slidebar.append('div').attr('class','slidebar_key_decor').style('left', l).text(fixation.idx);
+			self.newInfo(fixation);
 		})
 		.on('customMouseOut', function(){
-			slidebar.selectAll('.slidebar_key_decor').remove();
+			self.removeInfo();
 		});
 };
 
 DataDisplay.prototype.populateUiHandles = function(){
 	var panel = this.newPanel('handles'),
-		slidebarLayout = panel.append('div').attr('class','vertical_layout');
-		userControlLayout = panel.append('div').attr('class','vertical_layout');
-	slidebarLayout
-		.append('div').attr('id','slidebar');
-	var playback = userControlLayout.append('div').attr('id','playback'),
-		settings = userControlLayout.append('div').attr('id','settings');
+		slidebarLayout = panel.append('div').attr('class','vertical_layout'),
+		settings = slidebarLayout.append('div').attr('id','settings'),
+		playback = slidebarLayout.append('div').attr('id','playback');
+	slidebarLayout.append('div').attr('id','slidebar');
 	panel.style('top', 0).style('position','fixed');
+
 	this.newButton('stepbackButton','Step backward', playback);
 	this.newButton('playButton','Play', playback);
 	this.newButton('stepforButton','Step forward', playback);
 	this.newSeparator( playback );
-	this.newInput('devHInput','Dev V: ', settings);
-	this.newInput('devVInput','Dev H: ', settings);
-	this.newInput('thresholdInput','Threshold(ms): ', settings);
+
+	this.newButton('settingsDropdown','Settings', settings);
+	this.newSeparator( settings );
+	var settingsDropdown = settings.append('div').attr('class','listPanel')
+		.style('left',0).style('top',panel.style('height')).style('display','none');
+	settingsDropdown.on('mouseleave', function(){ d3.select(this).style('display','none'); });
+	settings.select('#settingsDropdown').on('click', function(){
+		settingsDropdown.style('display') === 'none' ?
+			settingsDropdown.style('display','block') : settingsDropdown.style('display','none');
+	});
+
+	var paramLayout = settingsDropdown.append('div').attr('class','vertical_layout'),
+		paramTable = paramLayout.append('table').append('tbody').append('tr');
+		paramTable.append('td');
+		paramTable.append('td');
+	var labelCell = paramTable.selectAll('td').filter(':first-child'),
+		inputCell = paramTable.selectAll('td').filter(':last-child');
+
+	this.newLabel('Fixation settings: ', labelCell.append('div'));
+	this.newLabel('Dev V: ', labelCell.append('div'));
+	this.newLabel('Dev H: ', labelCell.append('div'));
+	this.newLabel('Threshold(ms): ', labelCell.append('div'));
+
+	this.newLabel('Filter: ', labelCell.append('div'));
+	var label2 = labelCell.append('div'),
+		label3 = labelCell.append('div'),
+		label4 = labelCell.append('div'),
+		label5 = labelCell.append('div');
+	this.newRadio('filterAll', label2, true);
+	this.newLabel('All', label2);
+	this.newRadio('filterTime', label3);
+	this.newLabel('Time range: ', label3);
+	this.newRadio('filterNum', label4);
+	this.newLabel('Data point #: ', label4);
+	this.newRadio('filterDuration', label5);
+	this.newLabel('Duration: ', label5);
+
+	inputCell.append('div').text(' ');
+	this.newInput('devHInput', inputCell.append('div'));
+	this.newInput('devVInput', inputCell.append('div'));
+	this.newInput('thresholdInput', inputCell.append('div'));
+	inputCell.append('div').text(' ');
+	inputCell.append('div').text(' ');
+	var filter2 = inputCell.append('div'),
+		filter3 = inputCell.append('div'),
+		filter4 = inputCell.append('div');
+	this.newInput('filterTime_s', filter2);
+	this.newInput('filterTime_e', filter2);
+	this.newInput('filterNum_s', filter3);
+	this.newInput('filterNum_e', filter3);
+	this.newInput('filterDura_s', filter4);
+	this.newInput('filterDura_e', filter4);
+
 	this.canvas.style('margin-top',panel.style('height'));
 };
 
@@ -669,13 +658,30 @@ DataDisplay.prototype.newButton = function( id, hint, context ){
 	context.append('a').attr('id',id).attr('title',hint).attr('class','ui_button');
 };
 
-DataDisplay.prototype.newInput = function( id, label, context ){
-	context.append('div').attr('class','ui_input_label').style('margin-left','0.25em').text(label);
+DataDisplay.prototype.newInput = function( id, context ){
 	context.append('input').attr('id',id).attr('class','ui_input').style('margin','auto 0.25em');
 };
 
+DataDisplay.prototype.newLabel = function( label, context ){
+	context.append('div').attr('class','ui_input_label').style('margin-left','0.25em').text(label);
+};
+
+DataDisplay.prototype.newRadio = function( id, context, checked ){
+	context.append('input')
+		.attr({
+			'type': 'radio',
+			'id': id,
+			'name': 'choices'
+		})
+		.property('checked', checked);
+}
+
 DataDisplay.prototype.newSeparator = function( context ){
 	context.append('div').attr('class','ui_separator');
+};
+
+DataDisplay.prototype.newTinySeparator = function( context ){
+	context.append('div').attr('class','ui_separator_tiny');
 };
 
 DataDisplay.prototype.newPanel = function( id ){
