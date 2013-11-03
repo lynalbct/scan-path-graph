@@ -1,5 +1,5 @@
 DataDisplay = function dataDisplay( imageName, imageExt ){
-	// strings
+	// Strings
 	this.string = {
 		'loadData':'Loading data...',
 		'parseData':'Processing data...',
@@ -17,51 +17,32 @@ DataDisplay = function dataDisplay( imageName, imageExt ){
 	this.svgEffect = this.svg.append('g').attr('id','effectGroup');
 	this.svgCircle = this.svg.append('g').attr('id','circleGroup');
 	this.svgHighlight = this.svg.append('g').attr('id','highlightGroup');
-	// Effect control
+	// Animation & effect control
 	this.animationInterval = null;
-	this.popInterval = null;
-	this.colorScale = d3.scale.linear().range(['red', 'purple']).domain([0, 500]);
+	this.popInterval = null;	// Interval for poping each circle
+	this.colorScale = d3.scale.linear().range(['violet', 'blue','green','yellow','orange','red']).domain([0, 200, 400, 600, 800, 1000]);
+	this.mCoord = [0, 0];	// Mouse coordinate
 	// Frame control
 	this.key = 0;
 	// Data properties
-	this.criteria = {
-		'minTime' : 40,
-		'errX' : 5,
-		'errY' : 3
-	};
 	this.scaling = null;
 	this.dataSize = 0;
 	this.sampleRate = 0;
-	this.rawData = null;
+	this.rawData = [];
 	this.fixationData = [];
-	this.totalTime = 0;
+	this.record = {'totalTime' : 0, 'lowTime' : 0, 'highTime' : 0};	// Keep track of time frame of the data set
+	this.rawBackup = [];	// Backup for use with filters
+	// Settings
+	this.calcFix = false;	// If calculate fixation from data
+	this.criteria = {'minTime' : 40, 'errX' : 5, 'errY' : 3};	// Calculation criteria
 	// Event properties
-	this.isPaused = false;
-
+		//this.isPaused = false;
+	// Initialization
 	this.init();
 };
 
 DataDisplay.prototype.init = function(){
-	// init
-	this.loadImage();
-};
-
-DataDisplay.prototype.refreshOnCriteriaChange = function( minTime, errX, errY ){
-	this.criteria.minTime = minTime;
-	this.criteria.errX = errX;
-	this.criteria.errY = errY;
-	this.newLoadingScreen( this.string.parseData );
-	this.parseFix();
-	this.removeLoadingScreen();
-	this.display();
-};
-
-DataDisplay.prototype.refreshOnDataReload = function( dName ){
-	//this.loadData( dName );
-};
-
-DataDisplay.prototype.refreshOnImageReload = function( fName ){
-	this.imageName = fName;
+	// Init
 	this.loadImage();
 };
 
@@ -69,22 +50,22 @@ DataDisplay.prototype.refreshOnImageReload = function( fName ){
 
 DataDisplay.prototype.loadImage = function(){
 	this.newLoadingScreen( this.string.loadImage );
-	var src = 'data/'+this.imageName+this.imageExt,
+	var src = 'data/images/'+this.imageName+this.imageExt,
 	self = this,
 	img = $("<img />").attr('src', src).load(function() {
 		if (!this.complete || typeof this.naturalWidth == "undefined" || this.naturalWidth == 0) {
 			console.log('Image broken');
 		} else {
+			// Initialize canvas dimension and load image
 			self.imageWidth = this.width;
     		self.imageHeight = this.height;
     		self.canvas
-				.style('background-image','url('+src+')')
-				.style('width',self.imageWidth)
-				.style('height',self.imageHeight);
+				.style('background-image','url('+src+')');
 			self.svg
 				.style('width',self.imageWidth)
 				.style('height',self.imageHeight);
 			self.removeLoadingScreen();
+			// Load data
 			self.loadData();
 		}
 	});
@@ -115,61 +96,94 @@ DataDisplay.prototype.loadData = function(){
 DataDisplay.prototype.parseRaw = function(){
 	this.newLoadingScreen( this.string.parseData );
 	var d = [], i = 0;
-	// parse loaded PHP json
+	// Parse loaded PHP json
 	for (i = 0; i < this.rawData.data.length; i++ ){
 		d.push({
+			// Coordinate
 			'x': this.rawData.data[i][0],
-			'y': this.rawData.data[i][1]
+			'y': this.rawData.data[i][1],
+			// Start time; duration
+			's': this.rawData.data[i][2],
+			't': this.rawData.data[i][3]
 		});
 	}
+	// Total time from the last data point
+	this.record.totalTime = this.rawData.data[i-1][2] + this.rawData.data[i-1][3];
 	this.sampleRate = this.rawData.sample_rate;
 	this.scaling = this.rawData.scale;
 	this.rawData = d;
-	this.totalTime = this.calcInterval(d.length);
+	this.rawBackup = d;
 	this.parseFix();
 	this.removeLoadingScreen();
 };
 
 DataDisplay.prototype.parseFix = function(){
-	var d = [], i = 0, idx = 0.
+	var d = [], i = 0, idx = 0,
+		// Range of fixation time; used for scaling radius
 		maxR = Number.NEGATIVE_INFINITY, minR = Number.POSITIVE_INFINITY,
-		maxDisp = Number.NEGATIVE_INFINITY;
-	this.criteria.errX *= this.scaling.scaleX;
-	this.criteria.errY *= this.scaling.scaleY;
-	var c,
-	rawArray = {
-		'x': [],
-		'y': [],
-		'start': 0
-	},
-	fixation = {},
-	radiusMin = 2;
-	radiusMax = 40;
-
-	var c = this.rawData[i];
-	rawArray.x.push(c.x);
-	rawArray.y.push(c.y);
-	rawArray.start = this.calcInterval(i);
-	for (i = 0; i < this.rawData.length - 1; i++){
-		if (
-			this.calcError( this.rawData[i+1].x, this.rawData[i].x, this.criteria.errX) &&
-			this.calcError( this.rawData[i+1].y, this.rawData[i].y, this.criteria.errY) ){
-			rawArray.x.push(this.rawData[i+1].x);
-			rawArray.y.push(this.rawData[i+1].y);
-		} else {
-			if (this.calcInterval(rawArray.x.length) >= this.criteria.minTime ){
+		// Dispersion scaling
+		maxDisp = Number.NEGATIVE_INFINITY,
+		fixation = {},
+		radiusMin = 4, radiusMax = 40;
+	if ( this.calcFix ){
+		this.criteria.errX *= this.scaling.scaleX;
+		this.criteria.errY *= this.scaling.scaleY;
+		var c = this.rawData[i],	// First raw of the fixation
+		rawArray = {	// Accumulation of raw points
+			'x': [c.x], 'y': [c.y], 'start': c.s, 't': c.t
+		};
+		for (i = 0; i < this.rawData.length - 1; i++){
+			if (	// If next point is within deviation bounds
+				this.calcError( this.rawData[i+1].x, this.rawData[i].x, this.criteria.errX) &&
+				this.calcError( this.rawData[i+1].y, this.rawData[i].y, this.criteria.errY) ){
+				rawArray.x.push(this.rawData[i+1].x);
+				rawArray.y.push(this.rawData[i+1].y);
+				rawArray.t += this.rawData[i+1].t;
+			} else {	// Calculate fixation from accumulation
+				if (rawArray.t >= this.criteria.minTime ){
+					idx++;
+					fixation.x = this.calcAvg(rawArray.x);
+					fixation.y = this.calcAvg(rawArray.y);
+					fixation.ftime = rawArray.t;
+					fixation.dispersion = this.calc2dDispersion(rawArray.x, rawArray.y);
+					fixation.idx = idx;
+					fixation.start = rawArray.start;	// Start time
+					fixation.end = rawArray.start + rawArray.t;	// End time
+					d.push(fixation);
+					if (fixation.ftime > maxR){
+						maxR = fixation.ftime;
+					}
+					if (fixation.ftime < minR){
+						minR = fixation.ftime;
+					}
+					if (fixation.dispersion > maxDisp){
+						maxDisp = fixation.dispersion;
+					}
+					fixation = {};
+				}
+				// Reset
+				c = this.rawData[i];
+				rawArray = {
+					'x': [c.x], 'y': [c.y], 'start': c.s, 't': c.t
+				};
+			}
+		}
+	} else {
+		for (i = 0; i < this.rawData.length; i++){
+			if (this.rawData[i].t >= this.criteria.minTime ){
 				idx++;
-				fixation.x = this.calcAvg(rawArray.x);
-				fixation.y = this.calcAvg(rawArray.y);
-				fixation.ftime = this.calcInterval(rawArray.x.length);
-				fixation.dispersion = this.calc2dDispersion(rawArray.x, rawArray.y);
+				fixation.x = this.rawData[i].x;
+				fixation.y = this.rawData[i].y;
+				fixation.ftime = this.rawData[i].t;
+				fixation.dispersion = 0;
 				fixation.idx = idx;
-				fixation.start = rawArray.start;
-				fixation.end = rawArray.start + this.calcInterval(rawArray.x.length);
+				fixation.start = this.rawData[i].s;
+				fixation.end = fixation.start + this.rawData[i].t;
 				d.push(fixation);
 				if (fixation.ftime > maxR){
 					maxR = fixation.ftime;
-				} else if (fixation.ftime < minR){
+				}
+				if (fixation.ftime < minR){
 					minR = fixation.ftime;
 				}
 				if (fixation.dispersion > maxDisp){
@@ -177,118 +191,65 @@ DataDisplay.prototype.parseFix = function(){
 				}
 				fixation = {};
 			}
-			rawArray = {
-				'x': [],
-				'y': [],
-				'start': 0
-			};
-			c = this.rawData[i];
-			rawArray.x.push(c.x);
-			rawArray.y.push(c.y);
-			rawArray.start = this.calcInterval(i);
 		}
 	}
 	for (i = 0; i < d.length; i++ ){
-		d[i].r = (d[i].ftime - minR) / (maxR - minR) * (radiusMax - radiusMin) + radiusMin;
-		d[i].relativeDisp = d[i].dispersion / maxDisp;
+		// Scale radius on fixation time
+		if (maxR == minR){
+			d[i].r = radiusMax;
+		} else {
+			d[i].r = (d[i].ftime - minR) / (maxR - minR) * (radiusMax - radiusMin) + radiusMin;
+		}
+		// Scale dispersion
+		if (maxDisp == 0){
+			d[i].relativeDisp = 0;
+		} else {
+			d[i].relativeDisp = d[i].dispersion / maxDisp;
+		}
 	}
+	// Update data properties
+	this.record.lowTime = minR;
+	this.record.highTime = maxR;
 	this.dataSize = d.length;
 	this.fixationData = d;
-};
-
-// Property accessors
-
-DataDisplay.prototype.getFixationCriteria = function(){
-	return this.criteria;
-};
-
-// Helper methods
-
-DataDisplay.prototype.calcInterval = function( sampleCount ){
-	return (1000 / this.sampleRate) * sampleCount;
-};
-
-DataDisplay.prototype.calc2dDispersion = function( arrayX, arrayY ){
-	var avgX = this.calcAvg(arrayX), avgY = this.calcAvg(arrayY),
-		squareError = 0, i = 0;
-	for (i; i < arrayX.length; i++){
-		squareError+= ( Math.pow(arrayX[i] - avgX, 2) + Math.pow(arrayY[i] - avgY, 2) );
-	}
-	return Math.sqrt( squareError / arrayX.length );
-};
-
-DataDisplay.prototype.calcAvg = function( array ){
-	var sum = 0, i;
-	for (i = 0; i < array.length; i++){
-		sum += array[i];
-	}
-	return sum / array.length;
-};
-
-DataDisplay.prototype.calcError = function( target, base, tolerance ){
-	if ( target <= base + tolerance && target >= base - tolerance ){
-		return true;
-	} else {
-		return false;
-	}
-};
-
-DataDisplay.prototype.calcCircleIntersect = function( pOutside, pCircle, r ){
-	var x, y,
-		a = pCircle.y - pOutside.y,
-		b = pCircle.x - pOutside.x,
-		c = Math.sqrt(a * a + b * b),
-		cos = a / c,
-		sin = b / c,
-		c2 = r,
-		a2 = r * cos,
-		b2 = r * sin;
-	y = pCircle.y - a2;
-	x = pCircle.x - b2;
-	return {
-		'x': x,
-		'y': y
-	}
-};
-
-DataDisplay.prototype.calcDistance = function( a, b ){
-	var y = a.y - b.y,
-		x = a.x - b.x;
-	return Math.sqrt(x * x + y * y);
-};
-
-DataDisplay.prototype.calcScreenCenterV = function(){
-	var pos = window.innerHeight / 2;
-	return pos;
 };
 
 // Visualization elements
 
 DataDisplay.prototype.newCircle = function( fixation ){
-	var scale = fixation.idx / this.dataSize * 500
+	var scale = fixation.idx / this.dataSize * 1000
 		self = this;
 		circle = this.svgCircle.append('circle');
 		rect = this.canvas.append('div');
+	// Animation effect
 	var effect = function(){
 		self.newEdgeWalk( fixation, scale );
 		self.dimUnrelated( fixation.idx );
 		self.animationInterval = setInterval(function(){
 			self.newEdgeWalk( fixation, scale );
 		}, 2000);
-		self.trigger('customMouseIn',self.canvas.select('#slidebar_key_'+fixation.idx).node());
 		self.canvas.select('#slidebar_key_'+fixation.idx)
 			.style('background-color','rgba(0,0,0,0.8)');
+		self.trigger('customMouseIn',self.canvas.select('#slidebar_key_'+fixation.idx).node());
 	};
 	circle.style('fill', this.colorScale(scale) )
-		.attr('cx', fixation.x).attr('cy', fixation.y)
-		.attr('stroke-width', 4).attr('stroke', this.colorScale(scale) )
-		.attr('fill-opacity', 0.3)
-		.attr('r', 0).transition().duration(300).attr('r', fixation.r );
-	rect.attr('class', 'circle_mouse_event_receiver')
-		.attr('id', 'circle_mouse_event_receiver_'+fixation.idx)
-		.style('position','absolute')
-		.style('left', fixation.x - fixation.r).style('top', fixation.y - fixation.r)
-		.style('width', fixation.r * 2).style('height', fixation.r * 2);
+		.attr({
+			'cx': fixation.x,
+			'cy': fixation.y,
+			'stroke-width': 4,
+			'stroke': this.colorScale(scale),
+			'fill-opacity': 0.3,
+			'r': 0})
+		.transition().duration(300).attr('r', fixation.r );
+	rect.attr({
+		'class': 'circle_mouse_event_receiver',
+		'id': 'circle_mouse_event_receiver_'+fixation.idx})
+		.style({
+			'position':'absolute',
+			'left': fixation.x - fixation.r,
+			'top': fixation.y - fixation.r,
+			'width': fixation.r * 2,
+			'height': fixation.r * 2});
 	rect.on('mouseenter', function(){
 			self.removeRollover();
 			self.newRollover( fixation );
@@ -307,41 +268,36 @@ DataDisplay.prototype.newCircle = function( fixation ){
 };
 
 DataDisplay.prototype.newEdge = function( from, to ){
-	var scale = (from.idx + to.idx) / 2 / this.dataSize * 500,
+	var scale = (from.idx + to.idx) / 2 / this.dataSize * 1000,
 		p1 = this.calcCircleIntersect( from, to, to.r ),
 		p2 = this.calcCircleIntersect( to, from, from.r ),
 		x1 = p1.x, y1 = p1.y,
 		x2 = p2.x, y2 = p2.y;
 	this.svgEdge.append('line')
-		.attr('x1', x1).attr('y1', y1)
-		.attr('x2', x2).attr('y2', y2)
-		.attr('stroke-width', 0).transition().duration(300).attr('stroke-width', 3)
-		.attr('stroke', this.colorScale(scale) );
+		.attr({
+			'x1': x1, 'y1': y1,
+			'x2': x2, 'y2': y2,
+			'stroke-width': 0,
+			'stroke': this.colorScale(scale)})
+		.transition().duration(300).attr('stroke-width', 3);
 };
 
 DataDisplay.prototype.newInfo = function( p ){
-	var w = 80, h = 60,
-		top = p.y - h - p.r - 10;
-	if (top < 0){
-		top = p.y + p.r + 10;
-	}
-	var panel = this.canvas.append('div').attr('id','infoPanel')
-		.style('left',p.x - w/2).style('top', top)
-		.style('width',w).style('height',h),
-		panelDiv = panel.append('div');
+	var panel = this.canvas.append('div').attr('class','vertical_layout').attr('id','infoPanel');
 	if (p.idx === 1){
-		panelDiv.append('a').text('#'+p.idx+' START').attr('class','text-bold');
+		this.newLabel('#'+p.idx+' S', panel);
 	} else if (p.idx === this.dataSize){
-		panelDiv.append('a').text('#'+p.idx+' END').attr('class','text-bold');
+		this.newLabel('#'+p.idx+' E', panel);
 	} else {
-		panelDiv.append('a').text('#'+p.idx).attr('class','text-bold');
+		this.newLabel('#'+p.idx, panel)
 	}
-	panelDiv.append('a').text('x:'+parseInt(p.x)+', y:'+parseInt(p.y));
-	panelDiv.append('a').text( parseInt(p.ftime)+' ms');
-};
-
-DataDisplay.prototype.removeInfo = function(){
-	this.canvas.select('#infoPanel').remove();
+	this.newLabel('; Coord: ('+parseInt(p.x)+', '+parseInt(p.y)+')', panel);
+	this.newLabel('; Duration: '+parseInt(p.ftime)+' ms', panel);
+	if (p.dispersion !== 0){
+		this.newLabel('; Spread: '+parseInt(p.dispersion), panel);
+	} else {
+		this.newLabel('; Spread: no spread', panel);
+	}
 };
 
 DataDisplay.prototype.newRollover = function( p ){
@@ -365,8 +321,7 @@ DataDisplay.prototype.newRollover = function( p ){
 			left = maxL - w;
 		}
 		var panel = this.canvas.append('div').attr('id','rolloverPanel')
-				.style('left',left)
-				.style('max-width',w);
+				.style({'left': left, 'max-width': w});
 		for (i = 0; i < overlap.length; i++){
 			var node = panel.append('div');
 			node.text('#'+overlap[i].idx+' '+parseInt(overlap[i].ftime)+'ms').attr('class','text-bold');
@@ -386,6 +341,10 @@ DataDisplay.prototype.newRollover = function( p ){
 	}
 };
 
+DataDisplay.prototype.removeInfo = function(){
+	this.canvas.select('#infoPanel').remove();
+};
+
 DataDisplay.prototype.removeRollover = function(){
 	this.canvas.select('#rolloverPanel').remove();
 };
@@ -402,20 +361,22 @@ DataDisplay.prototype.newEdgeWalk = function( fixation, color ){
 	}
 	if (a !== null){
 		c1 = this.svgEffect.append('circle')
-		.attr('fill', this.colorScale(color))
-		.attr('r', 5)
-		.attr('cx', a.x).attr('cy', a.y)
+		.attr({
+			'fill': this.colorScale(color),
+			'r': 5,
+			'cx': a.x, 'cy': a.y})
 		.transition().duration(400)
-			.attr('cx', fixation.x).attr('cy', fixation.y)
+			.attr({'cx': fixation.x, 'cy': fixation.y})
 			.remove();
 	}
 	if (b !== null){
 		c2 = this.svgEffect.append('circle')
-		.attr('fill', this.colorScale(color))
-		.attr('r', 5)
-		.attr('cx', fixation.x).attr('cy', fixation.y)
+		.attr({
+			'fill': this.colorScale(color),
+			'r': 5,
+			'cx': fixation.x, 'cy': fixation.y})
 		.transition().duration(400)
-			.attr('cx', b.x).attr('cy', b.y)
+			.attr({'cx': b.x, 'cy': b.y})
 			.remove();
 	}
 };
@@ -425,11 +386,12 @@ DataDisplay.prototype.decorateCircle = function( fixation, isStart ){
 		self = this;
 		circle = this.svgHighlight.append('circle');
 	circle.style('fill', 'transparent' )
-		.attr('cx', fixation.x).attr('cy', fixation.y)
-		.attr('stroke-width', 4)
-		.attr('stroke', 'black' )
-		.attr('stroke-dasharray', '5,5')
-		.attr('r', 0)
+		.attr({
+			'cx': fixation.x, 'cy': fixation.y,
+			'stroke-width': 4,
+			'stroke': 'black',
+			'stroke-dasharray': '5,5',
+			'r': 0})
 		.transition().duration(300)
 			.attr('r', fixation.r + 2 );
 };
@@ -480,8 +442,8 @@ DataDisplay.prototype.stepBackward = function(){
 		this.svgCircle.selectAll('circle').filter(':last-child').remove();
 		this.svgEdge.selectAll('line').filter(':last-child').remove();
 		this.canvas.select('#slidebar').selectAll('.slidebar_key').filter(':last-child').remove();
-		if (this.key === this.dataSize - 1 || this.key === 0){
-			tihs.svgHighlight.selectAll('circle').filter(':last-child').remove();
+		if (this.key === this.dataSize || this.key === 0){
+			this.svgHighlight.selectAll('circle').filter(':last-child').remove();
 		}
 		this.key--;
 	} else {
@@ -508,6 +470,7 @@ DataDisplay.prototype.display = function(){
 	}, 100);
 };
 
+/*
 DataDisplay.prototype.pause = function(){
 	clearInterval(this.popInterval);
 	this.popInterval = null;
@@ -528,6 +491,7 @@ DataDisplay.prototype.resume = function(){
 		}
 	}, 100);
 }
+*/
 
 DataDisplay.prototype.replay = function(){
 	this.clear();
@@ -536,10 +500,20 @@ DataDisplay.prototype.replay = function(){
 
 DataDisplay.prototype.clear = function(){
 	this.canvas.selectAll('.circle_mouse_event_receiver').remove();
+	this.canvas.select('#slidebar').selectAll('.slidebar_key').remove();
 	this.svgCircle.selectAll('circle').remove();
 	this.svgEdge.selectAll('line').remove();
 	this.svgHighlight.selectAll('circle').remove();
 }
+
+DataDisplay.prototype.refreshOnCriteriaChange = function(){
+	this.newLoadingScreen( this.string.parseData );
+	// Reparse raw data
+	this.parseFix();
+	this.removeLoadingScreen();
+	// Refresh
+	this.replay();
+};
 
 // UI controls
 DataDisplay.prototype.holdHandles = function(){
@@ -561,17 +535,20 @@ DataDisplay.prototype.trigger = function(event, target){
 DataDisplay.prototype.newSlidebarKey = function( fixation ){
 	var slidebar = this.canvas.select('#slidebar'),
 		totalW = parseInt(slidebar.style('width')),
-		scaleS = fixation.start / this.totalTime,
-		scaleE = fixation.end / this.totalTime,
+		scaleS = fixation.start / this.record.totalTime,
+		scaleE = fixation.end / this.record.totalTime,
 		l = scaleS * totalW,
 		w = (scaleE - scaleS) * totalW,
 		self = this,
 		rect = self.canvas.select('#circle_mouse_event_receiver_'+fixation.idx).node(),
-		key = slidebar.append('div').attr('class','slidebar_key').attr('id','slidebar_key_'+fixation.idx).style('left', l).style('width', w);
-	key.style( 'height', parseInt(key.style('height')) * (1 + fixation.relativeDisp) );
+		key = slidebar.append('div')
+			.attr({
+				'class': 'slidebar_key',
+				'id': 'slidebar_key_'+fixation.idx})
+			.style({'left': l, 'width': w});
+	key.style( 'height', parseInt(key.style('height')) * (1.1 + fixation.relativeDisp) );
 	key.on('mouseenter', function(){
 			self.trigger('mousefocus', rect);
-			self.newInfo(fixation);
 		})
 		.on('mouseleave', function(){
 			self.trigger('mouseleave', rect);
@@ -594,72 +571,188 @@ DataDisplay.prototype.populateUiHandles = function(){
 	slidebarLayout.append('div').attr('id','slidebar');
 	panel.style('top', 0).style('position','fixed');
 
+	//Playback
 	this.newButton('stepbackButton','Step backward', playback);
 	this.newButton('playButton','Play', playback);
 	this.newButton('stepforButton','Step forward', playback);
 	this.newSeparator( playback );
 
+	//Settings
 	this.newButton('settingsDropdown','Settings', settings);
 	this.newSeparator( settings );
 	var settingsDropdown = settings.append('div').attr('class','listPanel')
-		.style('left',0).style('top',panel.style('height')).style('display','none');
+		.style({'left': 0, 'top': panel.style('height'), 'display': 'none'});
 	settingsDropdown.on('mouseleave', function(){ d3.select(this).style('display','none'); });
 	settings.select('#settingsDropdown').on('click', function(){
 		settingsDropdown.style('display') === 'none' ?
 			settingsDropdown.style('display','block') : settingsDropdown.style('display','none');
 	});
 
-	var paramLayout = settingsDropdown.append('div').attr('class','vertical_layout'),
-		paramTable = paramLayout.append('table').append('tbody').append('tr');
-		paramTable.append('td');
-		paramTable.append('td');
-	var labelCell = paramTable.selectAll('td').filter(':first-child'),
-		inputCell = paramTable.selectAll('td').filter(':last-child');
+	//Settings menu
+	var paramLayout = settingsDropdown.append('div').attr('class','vertical_layout');
+	//Fixation checkbox
+	var t1 = paramLayout.append('div').attr('class','vertical_layout_clear'), t2;
+	this.newBox('calcFixation', t1, this.calcFix);
+	this.newLabel('Calculate fixations', t1);
 
-	this.newLabel('Fixation settings: ', labelCell.append('div'));
-	this.newLabel('Dev V: ', labelCell.append('div'));
-	this.newLabel('Dev H: ', labelCell.append('div'));
-	this.newLabel('Threshold(ms): ', labelCell.append('div'));
+	//Fixation settings
+	this.newSeparatorHorizontal( paramLayout );
+	this.newLabel('Fixation settings: ', paramLayout.append('div').attr('class','vertical_layout_clear'));
+		//Dev V
+	this.newLabel('Deviation V (px): ', paramLayout.append('div').attr('class','vertical_layout_clear'));
+	this.newInput('devVInput', paramLayout.append('div').attr('class','vertical_layout_clear'), this.criteria.errY);
+		//Dev H
+	this.newLabel('Deviation H (px): ', paramLayout.append('div').attr('class','vertical_layout_clear'));
+	this.newInput('devHInput', paramLayout.append('div').attr('class','vertical_layout_clear'), this.criteria.errX);
+		//Threshold
+	this.newLabel('Threshold (ms): ', paramLayout.append('div').attr('class','vertical_layout_clear'));
+	this.newInput('thresholdInput', paramLayout.append('div').attr('class','vertical_layout_clear'), this.criteria.minTime);
 
-	this.newLabel('Filter: ', labelCell.append('div'));
-	var label2 = labelCell.append('div'),
-		label3 = labelCell.append('div'),
-		label4 = labelCell.append('div'),
-		label5 = labelCell.append('div');
-	this.newRadio('filterAll', label2, true);
-	this.newLabel('All', label2);
-	this.newRadio('filterTime', label3);
-	this.newLabel('Time range: ', label3);
-	this.newRadio('filterNum', label4);
-	this.newLabel('Data point #: ', label4);
-	this.newRadio('filterDuration', label5);
-	this.newLabel('Duration: ', label5);
+	//Filter
+	this.newSeparatorHorizontal( paramLayout );
+	this.newLabel('Filter: ', paramLayout.append('div').attr('class','vertical_layout_clear'));
+		//All
+	t1 = paramLayout.append('div').attr('class','vertical_layout_clear');
+	this.newRadio('filterAll', t1, true);
+	this.newLabel('All data', t1);
+		//Filter by time range
+	t1 = paramLayout.append('div').attr('class','vertical_layout_clear');
+	t2 = paramLayout.append('div').attr('class','vertical_layout_clear');
+	this.newRadio('filterTime', t1);
+	this.newLabel('Time range (ms): ', t1);
+	this.newInput('filterTime_s', t2, 0);
+	this.newLabel(' - ', t2);
+	this.newInput('filterTime_e', t2, this.record.totalTime);
+		//Filter by data point order
+	t1 = paramLayout.append('div').attr('class','vertical_layout_clear');
+	t2 = paramLayout.append('div').attr('class','vertical_layout_clear');
+	this.newRadio('filterNum', t1);
+	this.newLabel('Data point #: ', t1);
+	this.newInput('filterNum_s', t2, 1);
+	this.newLabel(' - ', t2);
+	this.newInput('filterNum_e', t2, this.dataSize);
+		//Filter by data point duration
+	t1 = paramLayout.append('div').attr('class','vertical_layout_clear');
+	t2 = paramLayout.append('div').attr('class','vertical_layout_clear');
+	this.newRadio('filterDuration', t1);
+	this.newLabel('Duration (ms): ', t1);
+	this.newInput('filterDura_s', t2, Math.floor(this.record.lowTime));
+	this.newLabel(' - ', t2);
+	this.newInput('filterDura_e', t2, Math.ceil(this.record.highTime));
 
-	inputCell.append('div').text(' ');
-	this.newInput('devHInput', inputCell.append('div'));
-	this.newInput('devVInput', inputCell.append('div'));
-	this.newInput('thresholdInput', inputCell.append('div'));
-	inputCell.append('div').text(' ');
-	inputCell.append('div').text(' ');
-	var filter2 = inputCell.append('div'),
-		filter3 = inputCell.append('div'),
-		filter4 = inputCell.append('div');
-	this.newInput('filterTime_s', filter2);
-	this.newInput('filterTime_e', filter2);
-	this.newInput('filterNum_s', filter3);
-	this.newInput('filterNum_e', filter3);
-	this.newInput('filterDura_s', filter4);
-	this.newInput('filterDura_e', filter4);
+	//Buttons
+	this.newSeparatorHorizontal( paramLayout );
+	this.newButton('exportButton', 'Save plot to image file', paramLayout );
+	this.newButton('updateButton', 'Update', paramLayout );
+	paramLayout.select('#updateButton').style({'float': 'right', 'margin-bottom': '0.75em'});
+
+	//Event handlers
+	var self = this;
+	playback.select('#stepforButton').on('click', function(){
+		self.stepForward();
+	});
+	playback.select('#stepbackButton').on('click', function(){
+		self.stepBackward();
+	});
+	playback.select('#playButton').on('click', function(){
+		self.replay();
+	});
+	paramLayout.select('#updateButton').on('click', function(){
+		//If calculate fixation
+		self.calcFix = paramLayout.select('#calcFixation').property('checked');
+		//Update calculation settings
+		if (self.calcFix){
+			self.criteria.errY = parseFloat(paramLayout.select('#devVInput').attr('value'));
+			self.criteria.errX = parseFloat(paramLayout.select('#devHInput').attr('value'));
+			self.criteria.minTime = parseFloat(paramLayout.select('#thresholdInput').attr('value'));
+		}
+		var c = paramLayout.select('input[name=choices]:checked').attr('id');
+		//Data filter
+		self.rawData = self.rawBackup;
+		var d = [];
+		for (i = 0; i < self.rawData.length; i++){
+			if (self.rawData[i].t >= self.criteria.minTime ){
+				d.push(self.rawData[i]);
+			}
+		}
+		switch(c){
+			case 'filterAll':
+				self.rawData = self.rawBackup;
+				break;
+			case 'filterTime':
+				var tLow = parseFloat(paramLayout.select('#filterTime_s').property('value')),
+					tHigh = parseFloat(paramLayout.select('#filterTime_e').property('value')),
+					newData = [];
+				for (var i = 0; i < d.length; i++){
+					if (d[i].s >= tLow && d[i].s + d[i].t <= tHigh){
+						newData.push(d[i]);
+					}
+				}
+				self.rawData = newData;
+				break;
+			case 'filterNum':
+				var nLow = parseInt(paramLayout.select('#filterNum_s').property('value')),
+					nHigh = parseInt(paramLayout.select('#filterNum_e').property('value')),
+					newData = [];
+				for (var i = 0; i < d.length; i++){
+					if ( i + 1 >= nLow && i + 1 <= nHigh){
+						newData.push(d[i]);
+					}
+				}
+				self.rawData = newData;
+				break;
+			case 'filterDuration':
+				var dLow = parseFloat(paramLayout.select('#filterDura_s').property('value')),
+					dHigh = parseFloat(paramLayout.select('#filterDura_e').property('value')),
+					newData = [];
+				for (var i = 0; i < d.length; i++){
+					if (d[i].t >= dLow && d[i].t <= dHigh){
+						newData.push(d[i]);
+					}
+				}
+				self.rawData = newData;
+				break;
+		}
+		self.refreshOnCriteriaChange();
+	});
+	paramLayout.select('#exportButton').on('click', function () {
+		//Convert svg to canvas
+		var c = self.canvas.append('canvas').attr('id','exportCanvas').style('height',self.imageHeight).style('width',self.imageWidth);
+		//CLean up leading, trailing spaces to prevent 'html' error
+		//Clean up html entities to prevent 'parsererror' error
+		var svgHtml = self.svg.node().parentNode.innerHTML.replace(/>\s+/g, '>').replace(/\s+</g, '<').replace(/<canvas.+/g,'').replace(/<div.+/g,'');
+		canvg(document.getElementById('exportCanvas'), svgHtml);
+		//Convert canvas to png
+		var cv = document.getElementById('exportCanvas');
+		var img = cv.toDataURL('image/png');
+		//Show result
+		var exportResult = self.canvas.append('div').attr('class','listPanel');
+		self.newLabel('Right click on the image to save:', exportResult.append('div').attr('class','vertical_layout_clear'));
+		exportResult.append('div').attr('class','vertical_layout_clear')
+			.append('img').attr('src',img).style({
+				'border': '1px solid #CCC',
+				'width': '640px',
+				'height': img.height / img.width * 640});
+		exportResult.style({
+			'top': self.calcScreenCenterV() - parseInt(exportResult.style('height')) / 2,
+			'left': self.calcScreenCenterH() - parseInt(exportResult.style('width')) / 2 });
+		self.newButton('exportResultOk', 'Close', exportResult.append('div').attr('class','vertical_layout_clear') );
+		exportResult.select('#exportResultOk').style({'float': 'right', 'margin-bottom': '0.75em'});
+		exportResult.select('#exportResultOk').on('click', function(){ exportResult.remove() });
+		c.remove();
+	});
 
 	this.canvas.style('margin-top',panel.style('height'));
 };
 
 DataDisplay.prototype.newButton = function( id, hint, context ){
-	context.append('a').attr('id',id).attr('title',hint).attr('class','ui_button');
+	context.append('a').attr('id',id).attr({'title': hint, 'class': 'ui_button'});
 };
 
-DataDisplay.prototype.newInput = function( id, context ){
-	context.append('input').attr('id',id).attr('class','ui_input').style('margin','auto 0.25em');
+DataDisplay.prototype.newInput = function( id, context, defaultValue ){
+	context.append('input')
+		.attr({'id': id, 'class': 'ui_input', 'placeholder': defaultValue}).property('value',defaultValue)
+		.style('margin','auto 0.25em');
 };
 
 DataDisplay.prototype.newLabel = function( label, context ){
@@ -671,21 +764,29 @@ DataDisplay.prototype.newRadio = function( id, context, checked ){
 		.attr({
 			'type': 'radio',
 			'id': id,
-			'name': 'choices'
-		})
+			'name': 'choices'})
 		.property('checked', checked);
-}
+};
+
+DataDisplay.prototype.newBox = function( id, context, checked ){
+	context.append('input')
+		.attr({
+			'type': 'checkbox',
+			'id': id,
+			'name': 'properties'})
+		.property('checked', checked);
+};
 
 DataDisplay.prototype.newSeparator = function( context ){
 	context.append('div').attr('class','ui_separator');
 };
 
-DataDisplay.prototype.newTinySeparator = function( context ){
-	context.append('div').attr('class','ui_separator_tiny');
+DataDisplay.prototype.newSeparatorHorizontal = function( context ){
+	context.append('div').attr('class','ui_separator_hor');
 };
 
 DataDisplay.prototype.newPanel = function( id ){
-	var panel = this.canvas.append('div').attr('class','panel').attr('id',id);
+	var panel = this.canvas.append('div').attr({'class': 'panel', 'id': id});
 	return panel;
 };
 
@@ -702,4 +803,67 @@ DataDisplay.prototype.newLoadingScreen = function( hint ){
 
 DataDisplay.prototype.removeLoadingScreen = function(){
 	this.canvas.select('#loadingScreen').remove();
+};
+
+// Helper methods
+
+DataDisplay.prototype.calc2dDispersion = function( arrayX, arrayY ){
+	var avgX = this.calcAvg(arrayX), avgY = this.calcAvg(arrayY),
+		squareError = 0, i = 0;
+	for (i; i < arrayX.length; i++){
+		squareError+= ( Math.pow(arrayX[i] - avgX, 2) + Math.pow(arrayY[i] - avgY, 2) );
+	}
+	return Math.sqrt( squareError / arrayX.length );
+};
+
+DataDisplay.prototype.calcAvg = function( array ){
+	var sum = 0, i;
+	for (i = 0; i < array.length; i++){
+		sum += array[i];
+	}
+	return sum / array.length;
+};
+
+DataDisplay.prototype.calcError = function( target, base, tolerance ){
+	if ( target <= base + tolerance && target >= base - tolerance ){
+		return true;
+	} else {
+		return false;
+	}
+};
+
+DataDisplay.prototype.calcCircleIntersect = function( pOutside, pCircle, r ){
+	// Calculate intersection of circle and line segment
+	var a = pCircle.y - pOutside.y,
+		b = pCircle.x - pOutside.x,
+		c = Math.sqrt(a * a + b * b),
+		cos = a / c, sin = b / c,
+		c2 = r,
+		a2 = r * cos, b2 = r * sin,
+		y = pCircle.y - a2,
+		x = pCircle.x - b2;
+	return {
+		'x': x,
+		'y': y
+	}
+};
+
+DataDisplay.prototype.calcDistance = function( a, b ){
+	var y = a.y - b.y,
+		x = a.x - b.x;
+	return Math.sqrt(x * x + y * y);
+};
+
+DataDisplay.prototype.calcScreenCenterV = function(){
+	return pos = window.innerHeight / 2;
+};
+
+DataDisplay.prototype.calcScreenCenterH = function(){
+	return pos = window.innerWidth / 2;
+};
+
+// Property accessors
+
+DataDisplay.prototype.getFixationCriteria = function(){
+	return this.criteria;
 };

@@ -28,6 +28,15 @@
 	box-shadow: 0 0 5px #DDD;
 }
 
+#infoPanel {
+	position: fixed;
+	background-color: rgba(255,255,255,0.9);
+	border: 1px solid #CCC;
+	box-shadow: 0 0 5px #DDD;
+	left: 0;
+	bottom: 0;
+}
+
 .loadingScreen {
 	width: 100%;
 	text-align:center;
@@ -49,41 +58,6 @@
 	background-repeat: no-repeat;
 	width: 100%;
 	height: 100%;
-}
-
-.text-bold{
-	font-weight: bold;
-}
-
-.panel{
-	position:absolute;
-	left: 0;
-	right: 0;
-	border-top: 1px solid rgba(0,0,0,0.2);
-	border-bottom: 1px solid rgba(0,0,0,0.2);
-	box-shadow: 0 0 2px #DDD;
-	background-color: rgba(255,255,255,0.9);
-	z-index: 100;
-}
-
-.vertical_layout{
-	padding: 0.5em;
-}
-
-.vertical_layout_clear{
-	padding: 0.5em;
-	padding-bottom: 0;
-}
-
-#blocking{
-	position: absolute;
-	top: 0;
-	bottom: 0;
-	left: 0;
-	right: 0;
-	width: 100%;
-	height: 100%;
-	z-index: 1000;
 }
 
 #slidebar{
@@ -115,11 +89,56 @@
 	height: 2em;
 }
 
+/* Modular UI */
+
+.text-bold{
+	font-weight: bold;
+}
+
+.panel{
+	position:absolute;
+	left: 0;
+	right: 0;
+	border-top: 1px solid rgba(0,0,0,0.2);
+	border-bottom: 1px solid rgba(0,0,0,0.2);
+	box-shadow: 0 0 2px #DDD;
+	background-color: rgba(255,255,255,0.9);
+	z-index: 100;
+}
+
+.vertical_layout{
+	padding: 0.5em;
+}
+
+.vertical_layout_clear{
+	padding: 0.25em;
+	padding-bottom: 0;
+}
+
+#blocking{
+	position: absolute;
+	top: 0;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 1000;
+}
+
 .ui_separator{
 	float: left;
 	height: 2em;
 	width: 1px;
 	margin: auto 0.5em;
+	background-color: rgba(0,0,0,0.2);
+}
+
+.ui_separator_hor{
+	float: left;
+	height: 1px;
+	width: 100%;
+	margin: 0.5em auto;
 	background-color: rgba(0,0,0,0.2);
 }
 
@@ -133,7 +152,7 @@
 }
 
 .ui_input{
-	width: 4em;
+	width: 6em;
 }
 
 .ui_button{
@@ -149,6 +168,8 @@
 .ui_button:hover{
 	border: 1px solid black;
 }
+
+/* Button styles */
 
 #stepbackButton{
 	background-image: url(images/stepback.svg);
@@ -170,6 +191,24 @@
 
 #settingsDropdown{
 	background-image: url(images/settings.svg);
+	background-position: center center;
+	background-repeat: no-repeat;
+}
+
+#exportButton{
+	background-image: url(images/save.svg);
+	background-position: center center;
+	background-repeat: no-repeat;
+}
+
+#updateButton{
+	background-image: url(images/update.svg);
+	background-position: center center;
+	background-repeat: no-repeat;
+}
+
+#exportResultOk{
+	background-image: url(images/x-mark.svg);
 	background-position: center center;
 	background-repeat: no-repeat;
 }

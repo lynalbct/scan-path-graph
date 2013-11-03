@@ -1,0 +1,6 @@
+Tab delimited
+1st line: Trial name
+2nd line: sample rate: samples/sec
+3rd line: fixation register points (UL UR LL LR) x,y for each point
+4th line: image register points (UL UR LL LR) x,y for each point
+5th line and on: data (x y start duration)
