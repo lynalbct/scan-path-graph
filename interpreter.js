@@ -662,12 +662,12 @@ DataDisplay.prototype.populateUiHandles = function(){
 		self.calcFix = paramLayout.select('#calcFixation').property('checked');
 		//Update calculation settings
 		if (self.calcFix){
-			self.criteria.errY = parseFloat(paramLayout.select('#devVInput').attr('value'));
-			self.criteria.errX = parseFloat(paramLayout.select('#devHInput').attr('value'));
-			self.criteria.minTime = parseFloat(paramLayout.select('#thresholdInput').attr('value'));
+			self.criteria.errY = parseFloat(paramLayout.select('#devVInput').property('value'));
+			self.criteria.errX = parseFloat(paramLayout.select('#devHInput').property('value'));
+			self.criteria.minTime = parseFloat(paramLayout.select('#thresholdInput').property('value'));
 		}
-		var c = paramLayout.select('input[name=choices]:checked').attr('id');
 		//Data filter
+		var c = paramLayout.select('input[name=choices]:checked').attr('id');
 		self.rawData = self.rawBackup;
 		var d = [];
 		for (i = 0; i < self.rawData.length; i++){
