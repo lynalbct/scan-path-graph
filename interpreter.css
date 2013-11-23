@@ -207,6 +207,12 @@
 	background-repeat: no-repeat;
 }
 
+#resetButton{
+	background-image: url(images/reset.svg);
+	background-position: center center;
+	background-repeat: no-repeat;
+}
+
 #exportResultOk{
 	background-image: url(images/x-mark.svg);
 	background-position: center center;

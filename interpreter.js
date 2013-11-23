@@ -32,6 +32,7 @@ DataDisplay = function dataDisplay( imageName, imageExt ){
 	this.fixationData = [];
 	this.record = {'totalTime' : 0, 'lowTime' : 0, 'highTime' : 0};	// Keep track of time frame of the data set
 	this.rawBackup = [];	// Backup for use with filters
+	this.settingBackup = {'record':{}, 'dataSize':0}	// Original values for filter
 	// Settings
 	this.calcFix = false;	// If calculate fixation from data
 	this.criteria = {'minTime' : 40, 'errX' : 5, 'errY' : 3};	// Calculation criteria
@@ -114,6 +115,8 @@ DataDisplay.prototype.parseRaw = function(){
 	this.rawData = d;
 	this.rawBackup = d;
 	this.parseFix();
+	this.settingBackup.record = this.record;
+	this.settingBackup.dataSize = this.dataSize;
 	this.removeLoadingScreen();
 };
 
@@ -390,7 +393,7 @@ DataDisplay.prototype.decorateCircle = function( fixation, isStart ){
 			'cx': fixation.x, 'cy': fixation.y,
 			'stroke-width': 4,
 			'stroke': 'black',
-			'stroke-dasharray': '5,5',
+			'stroke-dasharray': isStart ? '3,2' : '3,2',
 			'r': 0})
 		.transition().duration(300)
 			.attr('r', fixation.r + 2 );
@@ -438,7 +441,7 @@ DataDisplay.prototype.stepForward = function(){
 DataDisplay.prototype.stepBackward = function(){
 	// step frames of displaying points
 	if ( this.key >= 0 ){
-		this.canvas.selectAll('circle_mouse_event_receiver').filter(':last-child').remove();
+		this.canvas.selectAll('.circle_mouse_event_receiver').filter(':last-child').remove();
 		this.svgCircle.selectAll('circle').filter(':last-child').remove();
 		this.svgEdge.selectAll('line').filter(':last-child').remove();
 		this.canvas.select('#slidebar').selectAll('.slidebar_key').filter(':last-child').remove();
@@ -469,29 +472,6 @@ DataDisplay.prototype.display = function(){
 		}
 	}, 100);
 };
-
-/*
-DataDisplay.prototype.pause = function(){
-	clearInterval(this.popInterval);
-	this.popInterval = null;
-	this.isPaused = true;
-	this.releaseHandles();
-};
-
-DataDisplay.prototype.resume = function(){
-	this.holdHandles();
-	this.isPaused = false;
-	this.popInterval = setInterval(function(){
-		if ( self.key < self.dataSize ){
-			self.stepForward();
-		} else {
-			clearInterval(self.popInterval);
-			self.popInterval = null;
-			self.releaseHandles();
-		}
-	}, 100);
-}
-*/
 
 DataDisplay.prototype.replay = function(){
 	this.clear();
@@ -610,7 +590,10 @@ DataDisplay.prototype.populateUiHandles = function(){
 
 	//Filter
 	this.newSeparatorHorizontal( paramLayout );
-	this.newLabel('Filter: ', paramLayout.append('div').attr('class','vertical_layout_clear'));
+	t1 = paramLayout.append('div').attr('class','vertical_layout_clear');
+	this.newLabel('Filter: ', t1);
+	this.newButton('resetButton', 'Reset values', t1 );
+	t1.select('#resetButton').style({'float': 'right'});
 		//All
 	t1 = paramLayout.append('div').attr('class','vertical_layout_clear');
 	this.newRadio('filterAll', t1, true);
@@ -646,8 +629,28 @@ DataDisplay.prototype.populateUiHandles = function(){
 	this.newButton('updateButton', 'Update', paramLayout );
 	paramLayout.select('#updateButton').style({'float': 'right', 'margin-bottom': '0.75em'});
 
+	// Auxiliary
+	var getValue = function( id, type ){
+		if (paramLayout.select('#'+id).property('value') !== ''){
+			if ( type = 'int' ){
+				return parseInt(paramLayout.select('#'+id).property('value'));
+			} else if ( type = 'float' ){
+				return parseFloat(paramLayout.select('#'+id).property('value'));
+			}
+		} else {
+			if ( type = 'int' ){
+				return parseInt(paramLayout.select('#'+id).property('placeholder'));
+			} else if ( type = 'float' ){
+				return parseFloat(paramLayout.select('#'+id).property('placeholder'));
+			}
+		}
+	}
+
 	//Event handlers
 	var self = this;
+	slidebarLayout.on('mouseenter', function(){
+		self.removeRollover();
+	});
 	playback.select('#stepforButton').on('click', function(){
 		self.stepForward();
 	});
@@ -656,6 +659,16 @@ DataDisplay.prototype.populateUiHandles = function(){
 	});
 	playback.select('#playButton').on('click', function(){
 		self.replay();
+	});
+	paramLayout.select('#resetButton').on('click',function(){
+		paramLayout.select('#filterTime_s').property('value', 0);
+		paramLayout.select('#filterTime_e').property('value', self.settingBackup.record.totalTime);
+			//Filter by data point order
+		paramLayout.select('#filterNum_s').property('value', 1);
+		paramLayout.select('#filterNum_e').property('value',self.settingBackup.dataSize);
+			//Filter by data point duration
+		paramLayout.select('#filterDura_s').property('value', Math.floor(self.settingBackup.record.lowTime));
+		paramLayout.select('#filterDura_e').property('value', Math.ceil(self.settingBackup.record.highTime));
 	});
 	paramLayout.select('#updateButton').on('click', function(){
 		//If calculate fixation
@@ -680,8 +693,8 @@ DataDisplay.prototype.populateUiHandles = function(){
 				self.rawData = self.rawBackup;
 				break;
 			case 'filterTime':
-				var tLow = parseFloat(paramLayout.select('#filterTime_s').property('value')),
-					tHigh = parseFloat(paramLayout.select('#filterTime_e').property('value')),
+				var tLow = getValue('filterTime_s', 'float'),
+					tHigh = getValue('filterTime_e', 'float'),
 					newData = [];
 				for (var i = 0; i < d.length; i++){
 					if (d[i].s >= tLow && d[i].s + d[i].t <= tHigh){
@@ -691,8 +704,8 @@ DataDisplay.prototype.populateUiHandles = function(){
 				self.rawData = newData;
 				break;
 			case 'filterNum':
-				var nLow = parseInt(paramLayout.select('#filterNum_s').property('value')),
-					nHigh = parseInt(paramLayout.select('#filterNum_e').property('value')),
+				var nLow = getValue('filterNum_s', 'int'),
+					nHigh = getValue('filterNum_e', 'int'),
 					newData = [];
 				for (var i = 0; i < d.length; i++){
 					if ( i + 1 >= nLow && i + 1 <= nHigh){
@@ -702,8 +715,8 @@ DataDisplay.prototype.populateUiHandles = function(){
 				self.rawData = newData;
 				break;
 			case 'filterDuration':
-				var dLow = parseFloat(paramLayout.select('#filterDura_s').property('value')),
-					dHigh = parseFloat(paramLayout.select('#filterDura_e').property('value')),
+				var dLow = getValue('filterDura_s', 'float'),
+					dHigh = getValue('filterDura_e', 'float'),
 					newData = [];
 				for (var i = 0; i < d.length; i++){
 					if (d[i].t >= dLow && d[i].t <= dHigh){
@@ -713,33 +726,42 @@ DataDisplay.prototype.populateUiHandles = function(){
 				self.rawData = newData;
 				break;
 		}
+		self.record.totalTime = 0;
+		for (i = 0; i < self.rawData.length; i++){
+			self.record.totalTime += self.rawData[i].t;
+		}
 		self.refreshOnCriteriaChange();
 	});
 	paramLayout.select('#exportButton').on('click', function () {
 		//Convert svg to canvas
-		var c = self.canvas.append('canvas').attr('id','exportCanvas').style('height',self.imageHeight).style('width',self.imageWidth);
+		var c = self.canvas.append('canvas').attr('id','exportCanvas').attr({'height':self.imageHeight,'width':self.imageWidth});
+		var cv = document.getElementById('exportCanvas');
+		var bg = document.createElement('img');
+		bg.src = self.canvas.style('background-image').replace('url(','').replace(')','');
 		//CLean up leading, trailing spaces to prevent 'html' error
 		//Clean up html entities to prevent 'parsererror' error
 		var svgHtml = self.svg.node().parentNode.innerHTML.replace(/>\s+/g, '>').replace(/\s+</g, '<').replace(/<canvas.+/g,'').replace(/<div.+/g,'');
-		canvg(document.getElementById('exportCanvas'), svgHtml);
 		//Convert canvas to png
-		var cv = document.getElementById('exportCanvas');
-		var img = cv.toDataURL('image/png');
-		//Show result
-		var exportResult = self.canvas.append('div').attr('class','listPanel');
-		self.newLabel('Right click on the image to save:', exportResult.append('div').attr('class','vertical_layout_clear'));
-		exportResult.append('div').attr('class','vertical_layout_clear')
-			.append('img').attr('src',img).style({
-				'border': '1px solid #CCC',
-				'width': '640px',
-				'height': img.height / img.width * 640});
-		exportResult.style({
-			'top': self.calcScreenCenterV() - parseInt(exportResult.style('height')) / 2,
-			'left': self.calcScreenCenterH() - parseInt(exportResult.style('width')) / 2 });
-		self.newButton('exportResultOk', 'Close', exportResult.append('div').attr('class','vertical_layout_clear') );
-		exportResult.select('#exportResultOk').style({'float': 'right', 'margin-bottom': '0.75em'});
-		exportResult.select('#exportResultOk').on('click', function(){ exportResult.remove() });
-		c.remove();
+		bg.onload = function() {
+			cv.getContext('2d').drawImage(this, 0, 0);
+			canvg(cv, svgHtml, {ignoreClear : true, ignoreDimensions : true});
+			var img = cv.toDataURL('image/png');
+			//Show result
+			var exportResult = self.canvas.append('div').attr('class','listPanel');
+			self.newLabel('Right click on the image to save:', exportResult.append('div').attr('class','vertical_layout_clear'));
+			exportResult.append('div').attr('class','vertical_layout_clear')
+				.append('img').attr('src',img).style({
+					'border': '1px solid #CCC',
+					'width': '640px',
+					'height': img.height / img.width * 640});
+			exportResult.style({
+				'top': self.calcScreenCenterV() - parseInt(exportResult.style('height')) / 2,
+				'left': self.calcScreenCenterH() - parseInt(exportResult.style('width')) / 2 });
+			self.newButton('exportResultOk', 'Close', exportResult.append('div').attr('class','vertical_layout_clear') );
+			exportResult.select('#exportResultOk').style({'float': 'right', 'margin-bottom': '0.75em'});
+			exportResult.select('#exportResultOk').on('click', function(){ exportResult.remove() });
+			c.remove();
+		}
 	});
 
 	this.canvas.style('margin-top',panel.style('height'));
