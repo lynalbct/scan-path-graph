@@ -1,4 +1,4 @@
-DataDisplay = function dataDisplay( imageName, imageExt ){
+DataDisplay = function dataDisplay( imageName, dataName, userName ){
 	// Strings
 	this.string = {
 		'loadData':'Loading data...',
@@ -7,7 +7,8 @@ DataDisplay = function dataDisplay( imageName, imageExt ){
 	};
 	// Image properties
 	this.imageName = imageName;
-	this.imageExt = imageExt;
+	this.dataName = dataName;
+	this.userName = userName;
 	this.imageWidth = 0;
 	this.imageHeight = 0;
 	// Cartesian plane; svg containers
@@ -47,11 +48,15 @@ DataDisplay.prototype.init = function(){
 	this.loadImage();
 };
 
+DataDisplay.prototype.destroy = function(){
+	d3.selectAll(document.getElementById('cartesian_plane').childNodes).remove();
+};
+
 // Communication
 
 DataDisplay.prototype.loadImage = function(){
 	this.newLoadingScreen( this.string.loadImage );
-	var src = 'data/images/'+this.imageName+this.imageExt,
+	var src = './data/img/'+this.userName+'/'+this.imageName,
 	self = this,
 	img = $("<img />").attr('src', src).load(function() {
 		if (!this.complete || typeof this.naturalWidth == "undefined" || this.naturalWidth == 0) {
@@ -77,7 +82,7 @@ DataDisplay.prototype.loadData = function(){
 	this.newLoadingScreen( this.string.loadData );
 	// PHP connector
 	$.ajax({
-		url: 'io.php?f='+this.imageName,
+		url: './php/load.php?f='+this.dataName+'&u='+this.userName,
 		dataType: 'json',
 		success: function( data ){
 			self.rawData = data;
@@ -288,18 +293,18 @@ DataDisplay.prototype.newEdge = function( from, to ){
 DataDisplay.prototype.newInfo = function( p ){
 	var panel = this.canvas.append('div').attr('class','vertical_layout').attr('id','infoPanel');
 	if (p.idx === 1){
-		this.newLabel('#'+p.idx+' S', panel);
+		UI.newLabel('#'+p.idx+' S', panel);
 	} else if (p.idx === this.dataSize){
-		this.newLabel('#'+p.idx+' E', panel);
+		UI.newLabel('#'+p.idx+' E', panel);
 	} else {
-		this.newLabel('#'+p.idx, panel)
+		UI.newLabel('#'+p.idx, panel)
 	}
-	this.newLabel('; Coord: ('+parseInt(p.x)+', '+parseInt(p.y)+')', panel);
-	this.newLabel('; Duration: '+parseInt(p.ftime)+' ms', panel);
+	UI.newLabel('; Coord: ('+parseInt(p.x)+', '+parseInt(p.y)+')', panel);
+	UI.newLabel('; Duration: '+parseInt(p.ftime)+' ms', panel);
 	if (p.dispersion !== 0){
-		this.newLabel('; Spread: '+parseInt(p.dispersion), panel);
+		UI.newLabel('; Spread: '+parseInt(p.dispersion), panel);
 	} else {
-		this.newLabel('; Spread: no spread', panel);
+		UI.newLabel('; Spread: no spread', panel);
 	}
 };
 
@@ -342,6 +347,17 @@ DataDisplay.prototype.newRollover = function( p ){
 		panel.style( 'top', p.y - parseInt(panel.style('height')) / 2);
 		panel.on('mouseleave', this.removeRollover.bind(this));
 	}
+};
+
+DataDisplay.prototype.newLoadingScreen = function( hint ){
+	var panel = UI.newPanel('loadingScreen', this.canvas),
+	screen = panel.append('div').attr('class','loadingScreen');
+	screen.text( hint );
+	panel.style('top', this.calcScreenCenterV() - parseInt(panel.style('height')) / 2 );
+};
+
+DataDisplay.prototype.removeLoadingScreen = function(){
+	this.canvas.select('#loadingScreen').remove();
 };
 
 DataDisplay.prototype.removeInfo = function(){
@@ -544,7 +560,7 @@ DataDisplay.prototype.newSlidebarKey = function( fixation ){
 };
 
 DataDisplay.prototype.populateUiHandles = function(){
-	var panel = this.newPanel('handles'),
+	var panel = UI.newPanel('handles', this.canvas),
 		slidebarLayout = panel.append('div').attr('class','vertical_layout'),
 		settings = slidebarLayout.append('div').attr('id','settings'),
 		playback = slidebarLayout.append('div').attr('id','playback');
@@ -552,14 +568,14 @@ DataDisplay.prototype.populateUiHandles = function(){
 	panel.style('top', 0).style('position','fixed');
 
 	//Playback
-	this.newButton('stepbackButton','Step backward', playback);
-	this.newButton('playButton','Play', playback);
-	this.newButton('stepforButton','Step forward', playback);
-	this.newSeparator( playback );
+	UI.newButton('stepbackButton','Step backward', playback);
+	UI.newButton('playButton','Play', playback);
+	UI.newButton('stepforButton','Step forward', playback);
+	UI.newSeparator( playback );
 
 	//Settings
-	this.newButton('settingsDropdown','Settings', settings);
-	this.newSeparator( settings );
+	UI.newButton('settingsDropdown','Settings', settings);
+	UI.newSeparator( settings );
 	var settingsDropdown = settings.append('div').attr('class','listPanel')
 		.style({'left': 0, 'top': panel.style('height'), 'display': 'none'});
 	settingsDropdown.on('mouseleave', function(){ d3.select(this).style('display','none'); });
@@ -572,61 +588,61 @@ DataDisplay.prototype.populateUiHandles = function(){
 	var paramLayout = settingsDropdown.append('div').attr('class','vertical_layout');
 	//Fixation checkbox
 	var t1 = paramLayout.append('div').attr('class','vertical_layout_clear'), t2;
-	this.newBox('calcFixation', t1, this.calcFix);
-	this.newLabel('Calculate fixations', t1);
+	UI.newBox('calcFixation', t1, this.calcFix);
+	UI.newLabel('Calculate fixations', t1);
 
 	//Fixation settings
-	this.newSeparatorHorizontal( paramLayout );
-	this.newLabel('Fixation settings: ', paramLayout.append('div').attr('class','vertical_layout_clear'));
+	UI.newSeparatorHorizontal( paramLayout );
+	UI.newLabel('Fixation settings: ', paramLayout.append('div').attr('class','vertical_layout_clear'));
 		//Dev V
-	this.newLabel('Deviation V (px): ', paramLayout.append('div').attr('class','vertical_layout_clear'));
-	this.newInput('devVInput', paramLayout.append('div').attr('class','vertical_layout_clear'), this.criteria.errY);
+	UI.newLabel('Deviation V (px): ', paramLayout.append('div').attr('class','vertical_layout_clear'));
+	UI.newInput('devVInput', paramLayout.append('div').attr('class','vertical_layout_clear'), this.criteria.errY);
 		//Dev H
-	this.newLabel('Deviation H (px): ', paramLayout.append('div').attr('class','vertical_layout_clear'));
-	this.newInput('devHInput', paramLayout.append('div').attr('class','vertical_layout_clear'), this.criteria.errX);
+	UI.newLabel('Deviation H (px): ', paramLayout.append('div').attr('class','vertical_layout_clear'));
+	UI.newInput('devHInput', paramLayout.append('div').attr('class','vertical_layout_clear'), this.criteria.errX);
 		//Threshold
-	this.newLabel('Threshold (ms): ', paramLayout.append('div').attr('class','vertical_layout_clear'));
-	this.newInput('thresholdInput', paramLayout.append('div').attr('class','vertical_layout_clear'), this.criteria.minTime);
+	UI.newLabel('Threshold (ms): ', paramLayout.append('div').attr('class','vertical_layout_clear'));
+	UI.newInput('thresholdInput', paramLayout.append('div').attr('class','vertical_layout_clear'), this.criteria.minTime);
 
 	//Filter
-	this.newSeparatorHorizontal( paramLayout );
+	UI.newSeparatorHorizontal( paramLayout );
 	t1 = paramLayout.append('div').attr('class','vertical_layout_clear');
-	this.newLabel('Filter: ', t1);
-	this.newButton('resetButton', 'Reset values', t1 );
+	UI.newLabel('Filter: ', t1);
+	UI.newButton('resetButton', 'Reset values', t1 );
 	t1.select('#resetButton').style({'float': 'right'});
 		//All
 	t1 = paramLayout.append('div').attr('class','vertical_layout_clear');
-	this.newRadio('filterAll', t1, true);
-	this.newLabel('All data', t1);
+	UI.newRadio('filterAll', t1, true);
+	UI.newLabel('All data', t1);
 		//Filter by time range
 	t1 = paramLayout.append('div').attr('class','vertical_layout_clear');
 	t2 = paramLayout.append('div').attr('class','vertical_layout_clear');
-	this.newRadio('filterTime', t1);
-	this.newLabel('Time range (ms): ', t1);
-	this.newInput('filterTime_s', t2, 0);
-	this.newLabel(' - ', t2);
-	this.newInput('filterTime_e', t2, this.record.totalTime);
+	UI.newRadio('filterTime', t1);
+	UI.newLabel('Time range (ms): ', t1);
+	UI.newInput('filterTime_s', t2, 0);
+	UI.newLabel(' - ', t2);
+	UI.newInput('filterTime_e', t2, this.record.totalTime);
 		//Filter by data point order
 	t1 = paramLayout.append('div').attr('class','vertical_layout_clear');
 	t2 = paramLayout.append('div').attr('class','vertical_layout_clear');
-	this.newRadio('filterNum', t1);
-	this.newLabel('Data point #: ', t1);
-	this.newInput('filterNum_s', t2, 1);
-	this.newLabel(' - ', t2);
-	this.newInput('filterNum_e', t2, this.dataSize);
+	UI.newRadio('filterNum', t1);
+	UI.newLabel('Data point #: ', t1);
+	UI.newInput('filterNum_s', t2, 1);
+	UI.newLabel(' - ', t2);
+	UI.newInput('filterNum_e', t2, this.dataSize);
 		//Filter by data point duration
 	t1 = paramLayout.append('div').attr('class','vertical_layout_clear');
 	t2 = paramLayout.append('div').attr('class','vertical_layout_clear');
-	this.newRadio('filterDuration', t1);
-	this.newLabel('Duration (ms): ', t1);
-	this.newInput('filterDura_s', t2, Math.floor(this.record.lowTime));
-	this.newLabel(' - ', t2);
-	this.newInput('filterDura_e', t2, Math.ceil(this.record.highTime));
+	UI.newRadio('filterDuration', t1);
+	UI.newLabel('Duration (ms): ', t1);
+	UI.newInput('filterDura_s', t2, Math.floor(this.record.lowTime));
+	UI.newLabel(' - ', t2);
+	UI.newInput('filterDura_e', t2, Math.ceil(this.record.highTime));
 
 	//Buttons
-	this.newSeparatorHorizontal( paramLayout );
-	this.newButton('exportButton', 'Save plot to image file', paramLayout );
-	this.newButton('updateButton', 'Update', paramLayout );
+	UI.newSeparatorHorizontal( paramLayout );
+	UI.newButton('exportButton', 'Save plot to image file', paramLayout );
+	UI.newButton('updateButton', 'Update', paramLayout );
 	paramLayout.select('#updateButton').style({'float': 'right', 'margin-bottom': '0.75em'});
 
 	// Auxiliary
@@ -748,7 +764,7 @@ DataDisplay.prototype.populateUiHandles = function(){
 			var img = cv.toDataURL('image/png');
 			//Show result
 			var exportResult = self.canvas.append('div').attr('class','listPanel');
-			self.newLabel('Right click on the image to save:', exportResult.append('div').attr('class','vertical_layout_clear'));
+			UI.newLabel('Right click on the image to save:', exportResult.append('div').attr('class','vertical_layout_clear'));
 			exportResult.append('div').attr('class','vertical_layout_clear')
 				.append('img').attr('src',img).style({
 					'border': '1px solid #CCC',
@@ -757,7 +773,7 @@ DataDisplay.prototype.populateUiHandles = function(){
 			exportResult.style({
 				'top': self.calcScreenCenterV() - parseInt(exportResult.style('height')) / 2,
 				'left': self.calcScreenCenterH() - parseInt(exportResult.style('width')) / 2 });
-			self.newButton('exportResultOk', 'Close', exportResult.append('div').attr('class','vertical_layout_clear') );
+			UI.newButton('exportResultOk', 'Close', exportResult.append('div').attr('class','vertical_layout_clear') );
 			exportResult.select('#exportResultOk').style({'float': 'right', 'margin-bottom': '0.75em'});
 			exportResult.select('#exportResultOk').on('click', function(){ exportResult.remove() });
 			c.remove();
@@ -765,66 +781,6 @@ DataDisplay.prototype.populateUiHandles = function(){
 	});
 
 	this.canvas.style('margin-top',panel.style('height'));
-};
-
-DataDisplay.prototype.newButton = function( id, hint, context ){
-	context.append('a').attr('id',id).attr({'title': hint, 'class': 'ui_button'});
-};
-
-DataDisplay.prototype.newInput = function( id, context, defaultValue ){
-	context.append('input')
-		.attr({'id': id, 'class': 'ui_input', 'placeholder': defaultValue}).property('value',defaultValue)
-		.style('margin','auto 0.25em');
-};
-
-DataDisplay.prototype.newLabel = function( label, context ){
-	context.append('div').attr('class','ui_input_label').style('margin-left','0.25em').text(label);
-};
-
-DataDisplay.prototype.newRadio = function( id, context, checked ){
-	context.append('input')
-		.attr({
-			'type': 'radio',
-			'id': id,
-			'name': 'choices'})
-		.property('checked', checked);
-};
-
-DataDisplay.prototype.newBox = function( id, context, checked ){
-	context.append('input')
-		.attr({
-			'type': 'checkbox',
-			'id': id,
-			'name': 'properties'})
-		.property('checked', checked);
-};
-
-DataDisplay.prototype.newSeparator = function( context ){
-	context.append('div').attr('class','ui_separator');
-};
-
-DataDisplay.prototype.newSeparatorHorizontal = function( context ){
-	context.append('div').attr('class','ui_separator_hor');
-};
-
-DataDisplay.prototype.newPanel = function( id ){
-	var panel = this.canvas.append('div').attr({'class': 'panel', 'id': id});
-	return panel;
-};
-
-DataDisplay.prototype.removePanel = function( id ){
-	this.canvas.select('#'+id).remove();
-};
-
-DataDisplay.prototype.newLoadingScreen = function( hint ){
-	var panel = this.newPanel('loadingScreen'),
-	screen = panel.append('div').attr('class','loadingScreen');
-	screen.text( hint );
-	panel.style('top', this.calcScreenCenterV() - parseInt(panel.style('height')) / 2 );
-};
-
-DataDisplay.prototype.removeLoadingScreen = function(){
-	this.canvas.select('#loadingScreen').remove();
 };
 
 // Helper methods
@@ -864,6 +820,9 @@ DataDisplay.prototype.calcCircleIntersect = function( pOutside, pCircle, r ){
 		a2 = r * cos, b2 = r * sin,
 		y = pCircle.y - a2,
 		x = pCircle.x - b2;
+	if (a === 0 && b === 0){
+		y = pCircle.y; x = pCircle.x;
+	}
 	return {
 		'x': x,
 		'y': y

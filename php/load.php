@@ -1,15 +1,13 @@
 <?php
 header('Content-type: application/json');
-// Debugging
-require_once('PhpConsole.php');
-PhpConsole::start();
 
 // Get the parameter from URL
 $fname=$_GET['f'];
+$uname=$_GET['u'];
 
 // File location
-$DATA_FOLDER = 'data/data/';
-$dataFile = fopen($DATA_FOLDER . $fname . '.tbs','r');
+$DATA_FOLDER = '../data/data/';
+$dataFile = fopen($DATA_FOLDER . $uname . '/' . $fname . '.tbs','r');
 
 // File reading
 $parsed_data = array();

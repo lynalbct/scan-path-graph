@@ -60,6 +60,12 @@
 	height: 100%;
 }
 
+#user{
+	position: absolute;
+	z-index: 999999;
+	width: 100%;
+}
+
 #slidebar{
 	height: 2em;
 	position: relative;
@@ -104,6 +110,12 @@
 	box-shadow: 0 0 2px #DDD;
 	background-color: rgba(255,255,255,0.9);
 	z-index: 100;
+}
+
+.column_layout{
+	display: inline-block;
+	height: 30em;
+	width: 20em;
 }
 
 .vertical_layout{
@@ -155,6 +167,10 @@
 	width: 6em;
 }
 
+.ui_longInput{
+	width: 20em;
+}
+
 .ui_button{
 	width: 1.5em;
 	height: 1.5em;
@@ -167,6 +183,64 @@
 
 .ui_button:hover{
 	border: 1px solid black;
+}
+
+.ui_tabButton{
+	width: 3em;
+	height: 3em;
+	position: fixed;
+	bottom: 0;
+	right: 0;
+	border: 1px solid rgba(0,0,0,0.2);
+	border-bottom: none;
+	margin-right: 2em;
+	border-radius: 4px 4px 0 0;
+	transition: border 0.2s;
+	-webkit-transition: border 0.2s;
+}
+
+.ui_tabButton:hover{
+	border: 1px solid black;
+	border-bottom: none;
+}
+
+.ui_textButton {
+	cursor: default;
+	display:inline-block;
+	float: left;
+	font-family: arial;
+	font-size:0.8em;
+	height:2em;
+	line-height:2em;
+	width:10em;
+	text-decoration:none;
+	text-align:center;
+	border: 1px solid rgba(0,0,0,0.2);
+	margin: 0.25em 0.25em;
+	transition: border 0.2s;
+	-webkit-transition: border 0.2s;
+}
+.ui_textButton:hover {
+	border: 1px solid black;
+}
+
+.ui_listItem {
+	display: inline-block;
+	float: left;
+	width: 100%;
+	height: 2em;
+	cursor: default;
+	border: 1px solid rgba(0,0,0,0.2);
+	transition: border 0.2s;
+	-webkit-transition: border 0.2s;
+}
+
+.ui_listItem:hover {
+	border: 1px solid rgba(0,0,0,1);
+}
+
+.ui_listItem_selected {
+	background-color: rgba(0,0,0,0.2);
 }
 
 /* Button styles */
@@ -209,6 +283,19 @@
 
 #resetButton{
 	background-image: url(images/reset.svg);
+	background-position: center center;
+	background-repeat: no-repeat;
+}
+
+#xButton{
+	background-image: url(images/x-mark.svg);
+	background-position: center center;
+	background-repeat: no-repeat;
+}
+
+#userButton,
+#logoutButton{
+	background-image: url(images/user.svg);
 	background-position: center center;
 	background-repeat: no-repeat;
 }
