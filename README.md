@@ -1,7 +1,7 @@
 Scan path plotter
 ===============
 
-This is a web application to plot scan path based on eye tracking data of images. It can read a (image, data) file pair and draw scan path as output. All graphs are drawn in svg format and can be exported into png image for download.
+This is a web application to plot scan path based on eye tracking data of images. It can read a (image, data) file pair and draw scan path as output. All graphs are drawn in ```svg``` format and can be exported into ```png``` image for download.
 
 ##### Table of Contents  
 * [Features](#features)  
@@ -20,7 +20,7 @@ Features
     * Timeframe bar. Data points are mapped to this bar for a better view on the timing of each point in the entire timeframe, as well as the spread of each data point.
     * Settings. You can apply filters to the current dataset or adjust thresholds for use with fixation calculation.
         * Turn on fixation calculation will give you a new set of data points calculated from the data read from input file.
-        * You can also export the graph to png format for download.
+        * You can also export the graph to ```png``` format for download.
 * Information display for each data point
     * Data point size represents the relative fixation duration of that point. The bigger the longer
     * Each data point on the graph is responsive to mouse hover event. When hovering over one, the statistics of current data point will be displayed at bottom-left corner of the window.
@@ -29,7 +29,7 @@ Features
 
 File format
 ---------------
-The application reads in a file format called .tbs, which is a simple text file in the following form:
+The application reads in a file format called ```.tbs```, which is a simple text file in the following form:
 * All spaces are tab delimited
     * 1st line: Trial name
     * 2nd line: sample rate; an integer represents samples/sec; e.g. 120
@@ -59,7 +59,7 @@ User account system
 
 ###Behavior:
   * At the login window, when user type in a (username, password) combination, the application will check if that combination exists in record, and read record if so. If not, **it will automatically create an entry in the record for that combination.**
-  * A record is a simple plaintext file stored in JSON format. This file contains all file names related to a certain (username, password) combination.
+  * A record is a simple plaintext file stored in ```JSON``` format. This file contains all file names related to a certain (u,p) combination.
   * For each (u,p) on record, the application creates a folder in both ```/data``` and ```/img```. Folder name is MD5 hashed(```MD5(username)``` concat ```MD5(password)```).
   * All images under this (u,p) combination will be stored under ```/img/userHash``` with MD5 hashed filename.
   * All data files under this (u,p) combination will be stored under ```/data/userHash``` with MD5 hashed filename(```MD5(imageName)``` concat ```MD5(dataFileName)```).
@@ -68,4 +68,4 @@ User account system
 ###Security:
   * Since the application uses a fake database system to record files under users, you should not use it in large scale applications.
   * Data files are stored in plaintext. Do not store sensitive data.
-  * Since strings are MD5 hashed. Do not assume that (username,password) combinations are uncrackable. Treat (username,password) as only an identifier.
+  * Since strings are MD5 hashed. Do not assume that (username,password) combinations are uncrackable. Treat (u,p) as only an identifier.
