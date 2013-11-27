@@ -456,12 +456,12 @@ DataDisplay.prototype.stepForward = function(){
 
 DataDisplay.prototype.stepBackward = function(){
 	// step frames of displaying points
-	if ( this.key >= 0 ){
+	if ( this.key >= 1 ){
 		this.canvas.selectAll('.circle_mouse_event_receiver').filter(':last-child').remove();
 		this.svgCircle.selectAll('circle').filter(':last-child').remove();
 		this.svgEdge.selectAll('line').filter(':last-child').remove();
 		this.canvas.select('#slidebar').selectAll('.slidebar_key').filter(':last-child').remove();
-		if (this.key === this.dataSize || this.key === 0){
+		if (this.key === this.dataSize || this.key === 1){
 			this.svgHighlight.selectAll('circle').filter(':last-child').remove();
 		}
 		this.key--;

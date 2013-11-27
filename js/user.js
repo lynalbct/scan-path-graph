@@ -8,6 +8,8 @@ LoginDisplay.prototype.gate = function(){
 		UI.newLongInput('usrName', panel.append('div').attr('class','vertical_layout_clear'), 'User name');
 		UI.newLongInput('pswd', panel.append('div').attr('class','vertical_layout_clear'), 'Password');
 		UI.newTextButton('loginButton', 'Login', panel.append('div').attr('class','vertical_layout_clear') );
+		UI.newSeparatorHorizontal(panel.append('div').attr('class','vertical_layout_clear'));
+		UI.newLabel('Leave above fields blank to access demo account.', panel.append('div').attr('class','vertical_layout'));
 		panel.style({
 			'top': window.innerHeight / 2 - parseInt(panel.style('height')) / 2,
 			'left': window.innerWidth / 2 - parseInt(panel.style('width')) / 2 });
@@ -99,9 +101,10 @@ UserDisplay.prototype.initUI = function(){
 		this.newItem( key, this.tree[key].imgName, imgCol );
 	}
 
-	UI.newLabel('Upload a new image (<2 MB):', uploadCol.append('div').attr('class','vertical_layout'), true);
+	UI.newLabel('Each file should be less than 2MB in size.', uploadCol.append('div').attr('class','vertical_layout'), true);
+	UI.newLabel('Upload a new image:', uploadCol.append('div').attr('class','vertical_layout'), true);
 	UI.newFileUpload('singleImg', uploadCol.append('div').attr('class','vertical_layout'), false, this.uploadImg);
-	UI.newLabel('Upload data for the image (19 max., <2 MB/file):', uploadCol.append('div').attr('class','vertical_layout'), true);
+	UI.newLabel('Upload data for the image (*.tbs, 19 max):', uploadCol.append('div').attr('class','vertical_layout'), true);
 	UI.newFileUpload('dataFiles', uploadCol.append('div').attr('class','vertical_layout'), true, this.uploadData);
 	UI.newTextButton('submitBtn', 'Upload', uploadCol.append('div').attr('class','vertical_layout'));
 	uploadCol.select('#submitBtn').on('click', function(){
