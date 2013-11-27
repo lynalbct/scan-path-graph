@@ -4,9 +4,11 @@ Scan path plotter
 This is a web application to plot scan path based on eye tracking data of images. It can read a (image, data) file pair and draw scan path as output. All graphs are drawn in svg format and can be exported into png image for download.
 
 ##### Table of Contents  
-[Features](##Features)  
-[File format](##File format)  
-[User account system](##User account system)
+* [Features](#features)  
+* [File format](#file-format)  
+* [User account system](#user-account-system)
+   * [Behavior](#behavior)
+   * [Security](#security)
 
 Features
 ---------------
@@ -53,7 +55,8 @@ Example trial
 
 User account system
 ---------------
-* Since this application is in its initial stages, with the consideration of fitting it into a student project scope, the user account system is designed to be working, in terms of finding previously uploaded files for users, but at the same time leaving out the many detailed needed for a truly secure user system.
+* Since this application is in its initial stages, with the consideration of fitting it into a student project scope, the user account system is designed to be working, in terms of finding previously uploaded files for users. Thus current system employs a **fake** database system, leaving out the many detailed needed for a truly secure user system.
+
 ###Behavior:
   * At the login window, when user type in a (username, password) combination, the application will check if that combination exists in record, and read record if so. If not, **it will automatically create an entry in the record for that combination.**
   * A record is a simple plaintext file stored in JSON format. This file contains all file names related to a certain (username, password) combination.
@@ -61,7 +64,8 @@ User account system
   * All images under this (u,p) combination will be stored under ```/img/userHash``` with MD5 hashed filename.
   * All data files under this (u,p) combination will be stored under ```/data/userHash``` with MD5 hashed filename(```MD5(imageName)``` concat ```MD5(dataFileName)```).
   * All these file names are written in the record. So a file retrieval will simply need a read from the record, and finding the file.
+
 ###Security:
-  * Since the application uses a **fake** database system to record files under users, you should not use it in large scale applications.
+  * Since the application uses a fake database system to record files under users, you should not use it in large scale applications.
   * Data files are stored in plaintext. Do not store sensitive data.
   * Since strings are MD5 hashed. Do not assume that (username,password) combinations are uncrackable. Treat (username,password) as only an identifier.
