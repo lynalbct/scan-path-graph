@@ -55,7 +55,7 @@ Example trial
 
 User account system
 ---------------
-* Since this application is in its initial stages, with the consideration of fitting it into a student project scope, the user account system is designed to be working, in terms of finding previously uploaded files for users. Thus current system employs a **fake** database system, leaving out the many detailed needed for a truly secure user system.
+* Since this application is in its initial stage, with the consideration of fitting it into the scope of a one-semester student project, the user account system is designed to be working, in terms of managing previously uploaded files for users. Thus current system employs a **fake** database system, leaving out the detailed aspects needed for a truly secure user system.
 
 ###Behavior:
   * At the login window, when user type in a (username, password) combination, the application will check if that combination exists in record, and read record if so. If not, **it will automatically create an entry in the record for that combination.**
@@ -63,9 +63,9 @@ User account system
   * For each (u,p) on record, the application creates a folder in both ```/data``` and ```/img```. Folder name is MD5 hashed(```MD5(username)``` concat ```MD5(password)```).
   * All images under this (u,p) combination will be stored under ```/img/userHash``` with MD5 hashed filename.
   * All data files under this (u,p) combination will be stored under ```/data/userHash``` with MD5 hashed filename(```MD5(imageName)``` concat ```MD5(dataFileName)```).
-  * All these file names are written in the record. So a file retrieval will simply need a read from the record, and finding the file.
+  * All these file names are written in the record. So a file retrieval will simply be reading from the record, and finding the corresponding file.
 
 ###Security:
-  * Since the application uses a fake database system to record files under users, you should not use it in large scale applications.
+  * Since the application uses a fake database system to record files under users, do not use it in large scale applications or open networks.
   * Data files are stored in plaintext. Do not store sensitive data.
-  * Since strings are MD5 hashed. Do not assume that (username,password) combinations are uncrackable. Treat (u,p) as only an identifier.
+  * Since strings that represent user information are MD5 hashed, do not assume that (username,password) combinations are uncrackable. Treat (u,p) as only an identifier to your files.
