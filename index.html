@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="description" content="Scan-path-graph : Web application that imports and displays scan path and fixation data from commercial eye tracker systems. Features include: plot playback; user-defined raw data conversion;  data filter on time range, data order, and data duration; export graph to image file. Please read README before trying out demo. Demo:">
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Scan-path-graph</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/StoneBird/scan-path-graph">View on GitHub</a>
+
+          <h1 id="project_title">Scan-path-graph</h1>
+          <h2 id="project_tagline">Web application that imports and displays scan path and fixation data from commercial eye tracker systems. Features include: plot playback; user-defined raw data conversion;  data filter on time range, data order, and data duration; export graph to image file. Please read README before trying out demo. Demo:</h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/StoneBird/scan-path-graph/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/StoneBird/scan-path-graph/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>
+<a id="scan-path-plotter" class="anchor" href="#scan-path-plotter" aria-hidden="true"><span class="octicon octicon-link"></span></a>Scan path plotter</h1>
+
+<p>This is a web application to plot scan path based on eye tracking data of images. It can read a (image, data) file pair and draw scan path as output. All graphs are drawn in <code>svg</code> format and can be exported into <code>png</code> image for download.</p>
+
+<h5>
+<a id="table-of-contents" class="anchor" href="#table-of-contents" aria-hidden="true"><span class="octicon octicon-link"></span></a>Table of Contents</h5>
+
+<ul>
+<li>
+<a href="#features">Features</a><br>
+</li>
+<li>
+<a href="#file-format">File format</a><br>
+</li>
+<li>
+<a href="#user-account-system">User account system</a>
+
+<ul>
+<li><a href="#behavior">Behavior</a></li>
+<li><a href="#security">Security</a></li>
+</ul>
+</li>
+</ul>
+
+<h2>
+<a id="features" class="anchor" href="#features" aria-hidden="true"><span class="octicon octicon-link"></span></a>Features</h2>
+
+<ul>
+<li>A simple user account system used to maintain file relations and for revisiting.
+
+<ul>
+<li>File uploading. You can upload one image with multiple data files for that image each time.</li>
+<li>Listing of files that have been uploaded. Click one image item and choose a data item, the application will start plotting automatically.</li>
+</ul>
+</li>
+<li>A user control bar.
+
+<ul>
+<li>Playback control. You can replay entire plotting sequence or step data points.</li>
+<li>Timeframe bar. Data points are mapped to this bar for a better view on the timing of each point in the entire timeframe, as well as the spread of each data point.</li>
+<li>Settings. You can apply filters to the current dataset or adjust thresholds for use with fixation calculation.
+
+<ul>
+<li>Turn on fixation calculation will give you a new set of data points calculated from the data read from input file.</li>
+<li>You can also export the graph to <code>png</code> format for download.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>Information display for each data point
+
+<ul>
+<li>Data point size represents the relative fixation duration of that point. The bigger the longer</li>
+<li>Each data point on the graph is responsive to mouse hover event. When hovering over one, the statistics of current data point will be displayed at bottom-left corner of the window.</li>
+<li>A rollover will popup if there is an overlapping of multiple data points.</li>
+<li>Animation on connected edges represents the direction of where the eye scans from, and where it will scan next.</li>
+</ul>
+</li>
+</ul>
+
+<h2>
+<a id="file-format" class="anchor" href="#file-format" aria-hidden="true"><span class="octicon octicon-link"></span></a>File format</h2>
+
+<p>The application reads in a file format called <code>.tbs</code>, which is a simple text file in the following form:</p>
+
+<ul>
+<li>All spaces are tab delimited
+
+<ul>
+<li>1st line: Trial name</li>
+<li>2nd line: sample rate; an integer represents samples/sec; e.g. 120</li>
+<li>3rd line: fixation register points (UL UR LL LR) x,y for each point</li>
+<li>4th line: image register points (UL UR LL LR) x,y for each point</li>
+<li>5th line and on: data (x y start duration)</li>
+</ul>
+</li>
+<li>An example data file:</li>
+</ul>
+
+<pre><code>Example trial
+120
+140,92  364,97  138,388 364,392
+124,85  503,89  122,363 501,368
+220 40  0.0 141.666666667
+182 100 216.666666667   141.666666667
+178 101 366.666666667   166.666666667
+179 107 541.666666667   475.0
+307 53  1091.66666667   125.0
+309 66  1225.0  50.0
+305 68  1283.33333333   366.666666667
+304 227 1733.33333333   25.0
+</code></pre>
+
+<h2>
+<a id="user-account-system" class="anchor" href="#user-account-system" aria-hidden="true"><span class="octicon octicon-link"></span></a>User account system</h2>
+
+<ul>
+<li>Since this application is in its initial stage, with the consideration of fitting it into the scope of a one-semester student project, the user account system is designed to be working, in terms of managing previously uploaded files for users. Thus current system employs a <strong>fake</strong> database system, leaving out the detailed aspects needed for a truly secure user system.</li>
+</ul>
+
+<h3>
+<a id="behavior" class="anchor" href="#behavior" aria-hidden="true"><span class="octicon octicon-link"></span></a>Behavior:</h3>
+
+<ul>
+<li>At the login window, when user type in a (username, password) combination, the application will check if that combination exists in record, and read record if so. If not, <strong>it will automatically create an entry in the record for that combination.</strong>
+</li>
+<li>A record is a simple plaintext file stored in <code>JSON</code> format. This file contains all file names related to a certain (u,p) combination.</li>
+<li>For each (u,p) on record, the application creates a folder in both <code>/data</code> and <code>/img</code>. Folder name is MD5 hashed(<code>MD5(username)</code> concat <code>MD5(password)</code>).</li>
+<li>All images under this (u,p) combination will be stored under <code>/img/userHash</code> with MD5 hashed filename.</li>
+<li>All data files under this (u,p) combination will be stored under <code>/data/userHash</code> with MD5 hashed filename(<code>MD5(imageName)</code> concat <code>MD5(dataFileName)</code>).</li>
+<li>All these file names are written in the record. So a file retrieval will simply be reading from the record, and finding the corresponding file.</li>
+</ul>
+
+<h3>
+<a id="security" class="anchor" href="#security" aria-hidden="true"><span class="octicon octicon-link"></span></a>Security:</h3>
+
+<ul>
+<li>Since the application uses a fake database system to record files under users, do not use it in large scale applications or open networks.</li>
+<li>Data files are stored in plaintext. Do not store sensitive data.</li>
+<li>Since strings that represent user information are MD5 hashed, do not assume that (username,password) combinations are uncrackable. Treat (u,p) as only an identifier to your files.</li>
+</ul>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">Scan-path-graph maintained by <a href="https://github.com/StoneBird">StoneBird</a></p>
+        <p>Published with <a href="https://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
